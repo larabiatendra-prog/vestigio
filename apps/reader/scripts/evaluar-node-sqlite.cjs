@@ -134,7 +134,7 @@ Promise.resolve(
       copia.close();
       return `copia legible con ${JSON.stringify(n)} filas`;
     });
-    db && db.close();
+    if (db) db.close();
     rmSync(dir, { recursive: true, force: true });
     informe.superada = Object.values(informe.pruebas).every((p) => p.ok);
     console.log(JSON.stringify(informe, null, 2));

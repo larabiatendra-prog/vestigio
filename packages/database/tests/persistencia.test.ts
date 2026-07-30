@@ -210,21 +210,21 @@ describe('base de contenido', () => {
     contenido.fill(0xff, 4096, 4200);
     writeFileSync(ruta, contenido);
 
-    let fallo = false;
     let db: ReturnType<typeof abrirBaseContenido>['db'] | null = null;
-    try {
-      db = abrirBaseContenido(ruta).db;
-      const resultado = comprobarIntegridad(db, { conFts: ['segmentos_fts'] });
-      fallo = !resultado.ok;
-    } catch {
-      fallo = true; // abrir o comprobar pueden fallar: tambien es deteccion
-    } finally {
+    const fallo = ((): boolean => {
       try {
-        db?.close();
+        db = abrirBaseContenido(ruta).db;
+        return !comprobarIntegridad(db, { conFts: ['segmentos_fts'] }).ok;
       } catch {
-        // una base corrupta puede negarse incluso a cerrar
+        return true; // abrir o comprobar pueden fallar: tambien es deteccion
+      } finally {
+        try {
+          db?.close();
+        } catch {
+          // una base corrupta puede negarse incluso a cerrar
+        }
       }
-    }
+    })();
     expect(fallo).toBe(true);
   });
 });
