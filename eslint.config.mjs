@@ -12,4 +12,14 @@ export default tseslint.config(
       'no-console': ['warn', { allow: ['warn', 'error'] }],
     },
   },
+  {
+    // Scripts sueltos de Node (verificadores, utilidades de build).
+    files: ['**/scripts/**/*.mjs'],
+    languageOptions: {
+      globals: { console: 'readonly', process: 'readonly' },
+    },
+    rules: {
+      'no-console': 'off',
+    },
+  },
 );

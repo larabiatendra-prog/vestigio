@@ -1,8 +1,8 @@
 # PROJECT_STATE — Vestigio
 
 **Última actualización:** 2026-07-30
-**Fase:** Bloques 00 y 01 completados; siguiente: Bloque 02 (shell Electron)
-**Versiones:** app `0.0.0` · corpus `—` · información vigente `—`
+**Fase:** Bloques 00–01 completados; Bloque 02 con núcleo completado (deudas registradas); siguiente: Bloque 03 (dos SQLite)
+**Versiones:** app `0.1.0` · corpus `—` · información vigente `—`
 
 ## Estado actual
 
@@ -12,18 +12,26 @@
 - Seis ADR aceptadas (`docs/adr/`): stack, procesos/aislamiento, datos/búsqueda, portabilidad/versiones, integridad/recuperación, alcance.
 - Matriz de capacidades congelada en `content/coverage/capabilities-1.0.yml` (guía, no puerta — E1).
 - Contratos de datos preliminares en `packages/contracts/`: tipos TypeScript + JSON Schemas con tests ajv de ejemplos válidos/inválidos.
-- Sin código de aplicación todavía.
+- **La aplicación existe** (`apps/reader/`, Electron 43 + React 19 + Forge/Webpack): main mínimo, preload tipado, renderer con la línea El Páramo, servicio de datos en `utilityProcess` con supervisor lease/epoch y mutaciones idempotentes, `PortablePathService` (marcador de entrega, modo solo lectura a %TEMP%), `NetworkPolicyService` (allowlist exacta), CSP estricta sin `unsafe-eval` ni en desarrollo, protocolo `vestigio://` (deniega todo aún), logging rotativo, single-instance por root. Empaquetado Windows x64 real con 7/7 fuses verificados en el binario (`scripts/verificar-fuses.mjs`).
+- Verificado en real: arranque empaquetado desde carpeta externa con espacios y eñe (crea USER_DATA/BACKUPS/LOGS/RUNTIME correctos), arranque dev completo con renderer conectado, 37 pruebas unitarias.
 
 ## Hecho
 
-| Fecha      | Qué                                                                                                      |
-| ---------- | -------------------------------------------------------------------------------------------------------- |
-| 2026-07-30 | Bloque 00: estructura, documentos, tooling, tests de guardia, CI. Repo remoto creado, push y CI verde.   |
-| 2026-07-30 | Bloque 01: especificación ejecutable, 6 ADR, amenazas, requisitos, capacidades y contratos preliminares. |
+| Fecha      | Qué                                                                                                                                                  |
+| ---------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 2026-07-30 | Bloque 00: estructura, documentos, tooling, tests de guardia, CI. Repo remoto creado, push y CI verde.                                               |
+| 2026-07-30 | Bloque 01: especificación ejecutable, 6 ADR, amenazas, requisitos, capacidades y contratos preliminares.                                             |
+| 2026-07-30 | Bloque 02 (núcleo): shell Electron portable y seguro, supervisor lease/epoch, empaquetado con fuses verificados, primera ventana real con El Páramo. |
 
 ## Bloqueos
 
-- Ninguno.
+- **Firma del binario (decisión de Daniel):** grabar los fuses invalida la firma Authenticode de Electron y el Control de aplicaciones inteligente de Windows bloquea el `Vestigio.exe` empaquetado en NODO (detalle y opciones en `docs/TOOLCHAIN.md`). No impide desarrollar (el modo dev usa el electron.exe firmado), pero sí revalidar la UI empaquetada en esta máquina.
+
+## Deudas del Bloque 02 (pendientes, con destino)
+
+- Pruebas end-to-end de la matriz de fallos sobre el paquete real (crash/reinicio del servicio en vivo, mutación con respuesta perdida, rechazo de segundo escritor, modo solo lectura real): se harán con datos reales del bloque 03, donde dejan de ser simulacros vacíos.
+- Captura de red a nivel de sistema operativo como aceptación (bloque 19; el bloqueo por `webRequest` + tests unitarios ya cubre la app).
+- Revalidación de la UI del paquete final cuando se resuelva la firma.
 
 ## Deudas (aplazamientos deliberados por E2, con bloque de destino)
 
@@ -35,4 +43,4 @@
 
 ## Siguiente paso previsto
 
-Bloque 02: shell Electron portable y seguro (Forge + Webpack, procesos, fuses), primer arranque de ventana con la base de la línea El Páramo. Camino directo al hito "biblioteca usable cuanto antes" (E2): 02 → 03 (dos SQLite) → 04–06 (ingesta + HTML/PDF) → 09–11 (búsqueda y lectura).
+Bloque 03: las dos SQLite reales (contenido RO + personal RW) sobre el servicio de datos ya supervisado, con migraciones, PRAGMAs afirmados y las pruebas de crash que saldan parte de la deuda del 02. Camino al hito "biblioteca usable" (E2): 03 → 04–06 (ingesta + HTML/PDF) → 09–11 (búsqueda y lectura).

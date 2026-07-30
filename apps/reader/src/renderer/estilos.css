@@ -1,0 +1,174 @@
+/* El Páramo — línea gráfica oficial de NODO (canon/linea-grafica), adaptada
+   a la atmósfera de Vestigio: piedra, musgo, luz y silencio. Tokens
+   semánticos en español; nunca hex sueltos fuera de esta raíz. */
+
+:root {
+  --fondo: #131110;
+  --crema: #e7dfcd;
+  --oro: #d9b36c;
+  --oro-claro: #f0cf8e;
+  --ascua: #e0a184;
+  --arcilla: #c98868;
+  --salvia: #8fae9c;
+  --salvia-clara: #c3dccf;
+  --apagado: #8a8170;
+  --apagado-oscuro: #57503f;
+  --borde-sutil: rgba(231, 223, 205, 0.15);
+  --borde-oro: rgba(217, 179, 108, 0.35);
+  --borde-salvia: rgba(143, 174, 156, 0.45);
+  --seleccion: rgba(217, 179, 108, 0.3);
+
+  --voz-humana: 'Palatino Linotype', Palatino, Georgia, serif;
+  --voz-sistema: Consolas, monospace;
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+::selection {
+  background: var(--seleccion);
+  color: var(--crema);
+}
+
+body {
+  background: var(--fondo);
+  color: var(--crema);
+  font-family: var(--voz-humana);
+  min-height: 100vh;
+}
+
+.pantalla {
+  max-width: 860px;
+  margin: 0 auto;
+  padding: 12vh 32px 48px;
+  animation: alzarse 0.6s ease both;
+}
+
+.titulo {
+  font-size: 56px;
+  letter-spacing: 0.18em;
+  font-weight: normal;
+  color: var(--crema);
+}
+
+.lema {
+  font-family: var(--voz-sistema);
+  font-size: 11px;
+  letter-spacing: 0.34em;
+  text-transform: uppercase;
+  color: var(--oro);
+  margin-top: 10px;
+}
+
+.panel {
+  margin-top: 9vh;
+  border: 1px solid var(--borde-sutil);
+  border-radius: 4px;
+  padding: 28px 32px;
+}
+
+.panel + .panel {
+  margin-top: 20px;
+}
+
+.etiqueta {
+  font-family: var(--voz-sistema);
+  font-size: 10px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--apagado);
+}
+
+.fila {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--borde-sutil);
+}
+
+.fila:last-child {
+  border-bottom: none;
+}
+
+.fila .nombre {
+  font-size: 17px;
+  color: var(--crema);
+}
+
+.fila .valor {
+  font-family: var(--voz-sistema);
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  color: var(--salvia);
+}
+
+.fila .valor.oro {
+  color: var(--oro);
+}
+
+.fila .valor.apagado {
+  color: var(--apagado);
+}
+
+.fila .valor.ascua {
+  color: var(--ascua);
+}
+
+.latido {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  margin-right: 8px;
+  vertical-align: 1px;
+  background: var(--oro);
+  animation: respirar 2.6s ease-in-out infinite;
+}
+
+.latido.degradado {
+  background: var(--ascua);
+  animation: none;
+}
+
+.nota-pie {
+  margin-top: 26px;
+  font-family: var(--voz-sistema);
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  color: var(--apagado-oscuro);
+  word-break: break-all;
+}
+
+@keyframes alzarse {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes respirar {
+  0%,
+  100% {
+    transform: scale(1);
+    opacity: 0.85;
+  }
+  50% {
+    transform: scale(1.06);
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pantalla,
+  .latido {
+    animation: none;
+  }
+}

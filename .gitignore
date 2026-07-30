@@ -5,6 +5,10 @@ out/
 build/
 coverage/
 *.tsbuildinfo
+.webpack/
+
+# Root portable de desarrollo (estado local, jamas se versiona)
+.portable-dev/
 
 # Corpus y contenido pesado — nunca en Git
 # Nota: CONTENT/ y FALLBACK/ (carpetas de la entrega final) no se listan aqui

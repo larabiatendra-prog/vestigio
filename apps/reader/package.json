@@ -1,0 +1,30 @@
+{
+  "name": "@vestigio/reader",
+  "productName": "Vestigio",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Aplicacion lectora de Vestigio: biblioteca offline portable.",
+  "license": "Apache-2.0",
+  "main": ".webpack/main",
+  "scripts": {
+    "start": "electron-forge start",
+    "package": "electron-forge package",
+    "verificar-fuses": "node scripts/verificar-fuses.mjs"
+  },
+  "devDependencies": {
+    "@electron-forge/cli": "^7.11.2",
+    "@electron-forge/plugin-fuses": "^7.11.2",
+    "@electron-forge/plugin-webpack": "^7.11.2",
+    "@electron/fuses": "^1.8.0",
+    "@types/react": "^19.2.17",
+    "@types/react-dom": "^19.2.3",
+    "css-loader": "^7.1.4",
+    "electron": "^43.2.0",
+    "style-loader": "^4.0.0",
+    "ts-loader": "^9.6.2"
+  },
+  "dependencies": {
+    "react": "^19.2.8",
+    "react-dom": "^19.2.8"
+  }
+}

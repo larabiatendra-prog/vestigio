@@ -15,7 +15,7 @@
   ],
   "scripts": {
     "lint": "eslint .",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "tsc --noEmit && tsc --noEmit -p apps/reader",
     "test": "vitest run",
     "format": "prettier --check .",
     "format:fix": "prettier --write ."
