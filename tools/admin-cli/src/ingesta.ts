@@ -14,7 +14,18 @@ import {
   writeFileSync,
 } from 'node:fs';
 import { extname, join, relative } from 'node:path';
-import { construirCatalogoFixture, type RecursoCanonico } from '@vestigio/database';
+import {
+  construirCatalogoFixture,
+  type RecursoCanonico,
+  type SegmentoCanonico,
+} from '@vestigio/database';
+import {
+  markdownAHtml,
+  sanearHtml,
+  segmentarHtml,
+  textoAHtml,
+  type ResultadoSaneado,
+} from '@vestigio/content-pipeline';
 import {
   detectarFormato,
   detectarIdioma,
@@ -23,10 +34,22 @@ import {
   sha256De,
   uuidDesdeSha256,
 } from './metadatos.js';
-import { extraerTexto, segmentar } from './texto.js';
+import { extraerPdf, VERSION_PDFJS, type DiagnosticoPdf } from './pdf.js';
 
 export const HERRAMIENTA = 'vestigio-admin@0.1.0';
 const LIMITE_BYTES_ARCHIVO = 512 * 1024 * 1024; // 512 MB por archivo
+
+/**
+ * Estado del texto tal como lo vera Daniel en la ficha: honesto sobre lo
+ * que hay y lo que falta, nunca presentando una extraccion como original.
+ */
+const mapaEstadoPdf: Record<DiagnosticoPdf, string> = {
+  'con-texto': 'texto-por-pagina',
+  'parcialmente-extraible': 'texto-parcial',
+  'sin-texto-candidato-ocr': 'sin-texto-escaneado',
+  cifrado: 'cifrado',
+  corrupto: 'ilegible',
+};
 
 export interface Omitido {
   ruta: string;
@@ -67,8 +90,31 @@ export interface ResultadoIngesta {
   informe: InformeIngesta;
 }
 
+/** Convierte el original en derivado de acceso saneado + segmentos. */
+function procesarTextual(
+  formato: 'html' | 'markdown' | 'txt',
+  contenido: Buffer,
+): { segmentos: SegmentoCanonico[]; texto: string; saneado: ResultadoSaneado } {
+  const crudo = contenido.toString('utf8');
+  const html =
+    formato === 'html' ? crudo : formato === 'markdown' ? markdownAHtml(crudo) : textoAHtml(crudo);
+  const saneado = sanearHtml(html);
+  const estructurales = segmentarHtml(saneado.html);
+  const segmentos: SegmentoCanonico[] = estructurales.map((s) => ({
+    localizador: s.localizador,
+    titulo: s.titulo,
+    nivel: s.nivel,
+    cuerpo: s.cuerpo,
+    html: s.html,
+  }));
+  return { segmentos, texto: estructurales.map((s) => s.cuerpo).join('\n\n'), saneado };
+}
+
 /** Analiza la carpeta origen y produce la representacion canonica. */
-export function analizarCarpeta(origen: string, dirEdicion: string): ResultadoIngesta {
+export async function analizarCarpeta(
+  origen: string,
+  dirEdicion: string,
+): Promise<ResultadoIngesta> {
   const rutas = explorar(origen);
   const recursos: RecursoCanonico[] = [];
   const fuentes: FuenteRegistrada[] = [];
@@ -110,11 +156,47 @@ export function analizarCarpeta(origen: string, dirEdicion: string): ResultadoIn
     vistos.set(sha, rel);
 
     const uuid = uuidDesdeSha256(sha);
-    const { titulo } = extraerTitulo(formato, contenido, ruta);
-    const texto = extraerTexto(formato, contenido);
-    const segmentos = texto === null ? [] : segmentar(texto);
-    if (texto === null) informe.sinTexto++;
-    const idioma = texto !== null ? detectarIdioma(texto) : detectarIdioma(titulo);
+    let { titulo } = extraerTitulo(formato, contenido, ruta);
+    let segmentos: SegmentoCanonico[] = [];
+    let textoParaIdioma = titulo;
+    let estadoTexto = 'sin-texto';
+    let detalleTexto: string | null = null;
+    let numPaginas: number | null = null;
+
+    if (formato === 'html' || formato === 'markdown' || formato === 'txt') {
+      const procesado = procesarTextual(formato, contenido);
+      segmentos = procesado.segmentos;
+      textoParaIdioma = procesado.texto.length > 0 ? procesado.texto : titulo;
+      estadoTexto = 'texto-completo';
+      const { eliminados } = procesado.saneado;
+      const retirado =
+        eliminados.scripts +
+        eliminados.handlers +
+        eliminados.recursosRemotos +
+        eliminados.urlsPeligrosas;
+      if (retirado > 0) {
+        detalleTexto = `derivado saneado: ${String(retirado)} elementos activos o remotos retirados`;
+      }
+    } else if (formato === 'pdf') {
+      const pdf = await extraerPdf(new Uint8Array(contenido));
+      numPaginas = pdf.totalPaginas > 0 ? pdf.totalPaginas : null;
+      detalleTexto = pdf.detalle;
+      estadoTexto = mapaEstadoPdf[pdf.diagnostico];
+      if (pdf.titulo !== null && pdf.titulo.length > 2) titulo = pdf.titulo;
+      segmentos = pdf.paginas.map((p) => ({
+        // Localizador por pagina: la busqueda abre en la pagina exacta.
+        localizador: `p${String(p.pagina)}`,
+        titulo: null,
+        nivel: null,
+        cuerpo: p.texto,
+        html: null,
+        pagina: p.pagina,
+      }));
+      if (segmentos.length > 0) textoParaIdioma = segmentos.map((s) => s.cuerpo).join('\n');
+    }
+
+    if (segmentos.length === 0) informe.sinTexto++;
+    const idioma = detectarIdioma(textoParaIdioma);
     const adquirido = new Date().toISOString();
     const extension = extname(ruta).toLowerCase() || `.${formato}`;
     const rutaLogica = `originals/${uuid}${extension}`;
@@ -130,6 +212,9 @@ export function analizarCarpeta(origen: string, dirEdicion: string): ResultadoIn
       derechos: 'personal-preservation',
       modulos: [],
       origen: { adquirido, sha256: sha },
+      estadoTexto,
+      ...(detalleTexto !== null ? { detalleTexto } : {}),
+      ...(numPaginas !== null ? { numPaginas } : {}),
       assets: [
         {
           id: uuid,
@@ -192,6 +277,17 @@ export function materializarEdicion(
 
   writeFileSync(
     join(dirEdicion, 'content-sources.lock.json'),
-    `${JSON.stringify({ herramienta: HERRAMIENTA, generado: new Date().toISOString(), fuentes: resultado.fuentes }, null, 2)}\n`,
+    `${JSON.stringify(
+      {
+        herramienta: HERRAMIENTA,
+        // Herramientas de extraccion fijadas: un derivado siempre puede
+        // explicarse por quien y con que version se produjo (plan §8.2).
+        extractores: { pdf: `pdfjs-dist@${VERSION_PDFJS}` },
+        generado: new Date().toISOString(),
+        fuentes: resultado.fuentes,
+      },
+      null,
+      2,
+    )}\n`,
   );
 }

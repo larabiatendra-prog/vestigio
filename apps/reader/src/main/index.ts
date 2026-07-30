@@ -18,7 +18,7 @@ import type { PoliticaRed } from './politica-red';
 import { Registro } from './registro';
 import { SupervisorDatos } from './supervisor-datos';
 import { VERSION_APP } from '../comun/versiones';
-import type { EstadoAplicacion } from '../comun/estado';
+import type { CoincidenciaUI, EstadoAplicacion, FichaUI, RecursoResumenUI } from '../comun/estado';
 import type { EstadoServicio } from '../comun/mensajes';
 
 declare const VENTANA_PRINCIPAL_WEBPACK_ENTRY: string;
@@ -148,12 +148,17 @@ ipcMain.handle('estado:obtener', async (evento): Promise<EstadoAplicacion> => {
   let epoch: number | null = null;
   let basePersonal: EstadoAplicacion['basePersonal'] = null;
   let corpus: string | null = null;
+  let catalogo: EstadoAplicacion['catalogo'] = { presente: false, recursos: 0 };
   if (fase.fase === 'activo') {
     epoch = fase.epoch;
     try {
       const estadoServicio = (await supervisor.enviar('estado')) as EstadoServicio;
       detalle = estadoServicio.listo ? 'operativo' : 'inicializando';
       corpus = estadoServicio.catalogo.corpusVersion;
+      catalogo = {
+        presente: estadoServicio.catalogo.presente,
+        recursos: estadoServicio.catalogo.recursos,
+      };
       if (estadoServicio.basePersonal !== null) {
         basePersonal = {
           abierta: estadoServicio.basePersonal.abierta,
@@ -174,15 +179,51 @@ ipcMain.handle('estado:obtener', async (evento): Promise<EstadoAplicacion> => {
     rootPortable: rutas.root,
     servicioDatos: { fase: fase.fase, epoch, detalle },
     basePersonal,
+    catalogo,
     redExterna: 'bloqueada',
   };
+});
+
+/** Consulta al servicio de datos con emisor verificado. */
+async function consultar(evento: Electron.IpcMainInvokeEvent, carga: unknown): Promise<unknown> {
+  if (!emisorLegitimo(evento.senderFrame?.url ?? '')) {
+    registro.aviso('ipc rechazado: emisor no autorizado');
+    throw new Error('emisor no autorizado');
+  }
+  return supervisor.enviar('consultar', carga);
+}
+
+ipcMain.handle('biblioteca:listar', async (evento): Promise<RecursoResumenUI[]> => {
+  return (await consultar(evento, { operacion: 'biblioteca-listar' })) as RecursoResumenUI[];
+});
+
+ipcMain.handle('biblioteca:ficha', async (evento, recursoId: unknown): Promise<FichaUI | null> => {
+  if (typeof recursoId !== 'string') throw new Error('recursoId invalido');
+  return (await consultar(evento, { operacion: 'recurso-ficha', recursoId })) as FichaUI | null;
+});
+
+ipcMain.handle('biblioteca:buscar', async (evento, texto: unknown): Promise<CoincidenciaUI[]> => {
+  if (typeof texto !== 'string') throw new Error('consulta invalida');
+  return (await consultar(evento, { operacion: 'buscar', texto })) as CoincidenciaUI[];
 });
 
 // --- Ciclo de vida -----------------------------------------------------------
 
 void app.whenReady().then(() => {
   aplicarPoliticasDeSesion(session.defaultSession, politicaRed, registro);
-  manejarProtocoloInterno();
+  // El protocolo interno resuelve UUID -> ruta preguntando al servicio de
+  // datos: el renderer nunca entrega rutas, solo identificadores.
+  manejarProtocoloInterno(rutas.content, async (recursoId) => {
+    try {
+      const ruta = await supervisor.enviar('consultar', {
+        operacion: 'ruta-original',
+        recursoId,
+      });
+      return typeof ruta === 'string' ? ruta : null;
+    } catch {
+      return null;
+    }
+  });
   supervisor.iniciar();
   crearVentana();
   registro.info(`vestigio ${VERSION_APP} arrancado en modo ${rutas.modo}`);

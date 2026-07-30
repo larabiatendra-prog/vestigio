@@ -26,8 +26,17 @@ export {
   type NotaPersonal,
 } from './repositorio-personal.js';
 export {
+  RepositorioContenido,
+  consultaLiteralFts,
+  type RecursoResumen,
+  type FichaRecurso,
+  type SegmentoLectura,
+  type Coincidencia,
+} from './repositorio-contenido.js';
+export {
   construirCatalogoFixture,
   type AssetCanonico,
   type RecursoCanonico,
+  type SegmentoCanonico,
   type VersionesCatalogo,
 } from './fixture.js';

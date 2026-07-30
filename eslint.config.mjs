@@ -21,6 +21,13 @@ export default tseslint.config(
     },
   },
   {
+    // La CLI existe para escribir en pantalla: su salida es su interfaz.
+    files: ['tools/*/src/**/*.ts'],
+    rules: {
+      'no-console': 'off',
+    },
+  },
+  {
     // Scripts sueltos de Node (verificadores, utilidades de build).
     files: ['**/scripts/**/*.mjs', '**/scripts/**/*.cjs'],
     languageOptions: {

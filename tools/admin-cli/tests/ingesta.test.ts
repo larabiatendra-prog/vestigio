@@ -68,8 +68,8 @@ describe('deteccion de metadatos', () => {
 });
 
 describe('cadena de ingesta completa', () => {
-  it('carpeta entera -> edicion con catalogo buscable, dedupe y manifiesto', () => {
-    const resultado = analizarCarpeta(origen, edicion);
+  it('carpeta entera -> edicion con catalogo buscable, dedupe y manifiesto', async () => {
+    const resultado = await analizarCarpeta(origen, edicion);
     const { informe } = resultado;
 
     expect(informe.explorados).toBe(6);
@@ -128,8 +128,8 @@ describe('cadena de ingesta completa', () => {
     expect(verificarManifiesto(edicion)).toEqual([]);
   });
 
-  it('alterar un byte de un original rompe la verificacion', () => {
-    const resultado = analizarCarpeta(origen, edicion);
+  it('alterar un byte de un original rompe la verificacion', async () => {
+    const resultado = await analizarCarpeta(origen, edicion);
     materializarEdicion(resultado, origen, edicion, 'v');
     escribirManifiesto(edicion, generarManifiesto(edicion));
 
@@ -148,8 +148,8 @@ describe('cadena de ingesta completa', () => {
     expect(originales).toBeTruthy();
   });
 
-  it('borrar un archivo o colar uno nuevo tambien se detecta', () => {
-    const resultado = analizarCarpeta(origen, edicion);
+  it('borrar un archivo o colar uno nuevo tambien se detecta', async () => {
+    const resultado = await analizarCarpeta(origen, edicion);
     materializarEdicion(resultado, origen, edicion, 'v');
     escribirManifiesto(edicion, generarManifiesto(edicion));
 
@@ -158,9 +158,9 @@ describe('cadena de ingesta completa', () => {
     expect(problemas.some((p) => p.problema === 'no-manifestado')).toBe(true);
   });
 
-  it('reingestar la misma carpeta produce los mismos UUID (anclas estables)', () => {
-    const r1 = analizarCarpeta(origen, edicion);
-    const r2 = analizarCarpeta(origen, edicion);
+  it('reingestar la misma carpeta produce los mismos UUID (anclas estables)', async () => {
+    const r1 = await analizarCarpeta(origen, edicion);
+    const r2 = await analizarCarpeta(origen, edicion);
     expect(r1.recursos.map((r) => r.id)).toEqual(r2.recursos.map((r) => r.id));
   });
 });

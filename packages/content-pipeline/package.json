@@ -1,0 +1,11 @@
+{
+  "name": "@vestigio/content-pipeline",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Saneado, extraccion estructural y segmentacion de formatos textuales de Vestigio.",
+  "license": "Apache-2.0",
+  "exports": {
+    ".": "./src/index.ts"
+  }
+}

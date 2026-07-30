@@ -32,7 +32,7 @@ function salirUso(mensaje: string): never {
   process.exit(2);
 }
 
-function comandoIngerir(args: string[]): number {
+async function comandoIngerir(args: string[]): Promise<number> {
   const origen = args[0];
   if (origen === undefined || origen.startsWith('--')) salirUso('falta la carpeta de origen');
   const salida = opcion(args, 'salida');
@@ -49,7 +49,7 @@ function comandoIngerir(args: string[]): number {
     opcion(args, 'corpus-version') ?? `edicion-${new Date().toISOString().slice(0, 10)}`;
   const json = args.includes('--json');
 
-  const resultado = analizarCarpeta(rutaOrigen, rutaSalida);
+  const resultado = await analizarCarpeta(rutaOrigen, rutaSalida);
   materializarEdicion(resultado, rutaOrigen, rutaSalida, corpusVersion);
   const manifiesto = generarManifiesto(rutaSalida);
   escribirManifiesto(rutaSalida, manifiesto);
@@ -122,7 +122,7 @@ function comandoVerificar(args: string[]): number {
 const [, , comando, ...resto] = process.argv;
 switch (comando) {
   case 'ingerir':
-    process.exit(comandoIngerir(resto));
+    process.exit(await comandoIngerir(resto));
     break;
   case 'verificar':
     process.exit(comandoVerificar(resto));

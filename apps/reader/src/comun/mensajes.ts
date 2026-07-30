@@ -58,6 +58,7 @@ export interface EstadoServicio {
   catalogo: {
     presente: boolean;
     corpusVersion: string | null;
+    recursos: number;
   };
 }
 

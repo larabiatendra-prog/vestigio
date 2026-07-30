@@ -18,12 +18,14 @@
     "@electron/fuses": "^1.8.0",
     "@types/react": "^19.2.17",
     "@types/react-dom": "^19.2.3",
+    "copy-webpack-plugin": "^14.0.0",
     "css-loader": "^7.1.4",
     "electron": "^43.2.0",
     "style-loader": "^4.0.0",
     "ts-loader": "^9.6.2"
   },
   "dependencies": {
+    "pdfjs-dist": "^6.2.108",
     "react": "^19.2.8",
     "react-dom": "^19.2.8"
   }

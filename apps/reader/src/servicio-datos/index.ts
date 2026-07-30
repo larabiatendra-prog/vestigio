@@ -11,6 +11,7 @@ import {
   comprobarIntegridad,
   ErrorBaseDatos,
   esOperacionMutacion,
+  RepositorioContenido,
   RepositorioPersonal,
   respaldarBasePersonal,
   type AperturaPersonal,
@@ -32,6 +33,7 @@ const puerto = process.parentPort;
 let personal: AperturaPersonal | null = null;
 let repositorio: RepositorioPersonal | null = null;
 let catalogo: AperturaContenido | null = null;
+let contenido: RepositorioContenido | null = null;
 let corpusVersion: string | null = null;
 
 if (modo === 'lectura-escritura' && rutaUserData !== undefined) {
@@ -55,10 +57,8 @@ if (modo === 'lectura-escritura' && rutaUserData !== undefined) {
 if (rutaContent !== undefined) {
   try {
     catalogo = abrirBaseContenido(join(rutaContent, 'index', 'vestigio-content.sqlite'));
-    const fila = catalogo.db
-      .prepare("SELECT valor FROM release_metadata WHERE clave='corpus_version'")
-      .get() as { valor: string } | undefined;
-    corpusVersion = fila?.valor ?? null;
+    contenido = new RepositorioContenido(catalogo.db);
+    corpusVersion = contenido.versionCorpus();
   } catch {
     // Sin catalogo todavia: estado degradado honesto, no un error fatal.
     catalogo = null;
@@ -92,12 +92,61 @@ function estadoActual(): EstadoServicio {
             favoritos: resumen.favoritos,
             notas: resumen.notas,
           },
-    catalogo: { presente: catalogo !== null, corpusVersion },
+    catalogo: {
+      presente: catalogo !== null,
+      corpusVersion,
+      recursos: contenido?.contarRecursos() ?? 0,
+    },
   };
 }
 
 function manejarConsulta(peticion: Peticion): void {
-  const carga = peticion.carga as { operacion?: string; recursoId?: string } | undefined;
+  const carga = peticion.carga as
+    { operacion?: string; recursoId?: string; texto?: string; limite?: number } | undefined;
+
+  // Consultas del catalogo: disponibles aunque no haya base personal.
+  switch (carga?.operacion) {
+    case 'biblioteca-listar':
+      responder({
+        id: peticion.id,
+        epoch: peticion.epoch,
+        ok: true,
+        resultado: contenido?.listar() ?? [],
+      });
+      return;
+    case 'recurso-ficha': {
+      if (carga.recursoId === undefined) {
+        error(peticion, 'falta-parametro', 'se requiere recursoId');
+        return;
+      }
+      responder({
+        id: peticion.id,
+        epoch: peticion.epoch,
+        ok: true,
+        resultado: contenido?.ficha(carga.recursoId) ?? null,
+      });
+      return;
+    }
+    case 'buscar':
+      responder({
+        id: peticion.id,
+        epoch: peticion.epoch,
+        ok: true,
+        resultado: contenido?.buscar(carga.texto ?? '', carga.limite) ?? [],
+      });
+      return;
+    case 'ruta-original':
+      responder({
+        id: peticion.id,
+        epoch: peticion.epoch,
+        ok: true,
+        resultado: contenido?.rutaOriginal(carga.recursoId ?? '') ?? null,
+      });
+      return;
+    default:
+      break;
+  }
+
   if (repositorio === null) {
     error(peticion, 'sin-base-personal', 'no hay base personal en este modo');
     return;

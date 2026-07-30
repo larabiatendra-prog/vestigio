@@ -17,6 +17,12 @@ export interface Migracion {
 // Base de contenido (solo lectura en la app; la construye la herramienta
 // administrativa). El esquema vive aqui para que fixtures y CLI compartan
 // una unica definicion.
+//
+// A diferencia de la base personal, este catalogo es un ARTEFACTO DE
+// CONSTRUCCION: se regenera entero desde los originales en cada edicion.
+// Por eso su esquema puede evolucionar en la migracion 1 mientras no haya
+// una edicion publicada; los datos personales, anclados a UUID, no dependen
+// de su forma interna.
 // ---------------------------------------------------------------------------
 
 export const MIGRACIONES_CONTENIDO: Migracion[] = [
@@ -36,6 +42,10 @@ export const MIGRACIONES_CONTENIDO: Migracion[] = [
         autor TEXT,
         fecha_publicacion TEXT,
         resumen TEXT,
+        -- Honestidad sobre el derivado (E1): que se pudo extraer y como.
+        estado_texto TEXT NOT NULL DEFAULT 'desconocido',
+        detalle_texto TEXT,
+        num_paginas INTEGER,
         origen_url TEXT,
         origen_adquirido TEXT,
         origen_sha256 TEXT,
@@ -73,7 +83,12 @@ export const MIGRACIONES_CONTENIDO: Migracion[] = [
         recurso_pk INTEGER NOT NULL REFERENCES recursos(pk),
         localizador TEXT NOT NULL,
         titulo TEXT,
+        nivel INTEGER,
         cuerpo TEXT NOT NULL,
+        -- Derivado de acceso saneado para el lector; null en PDF (se lee
+        -- el original con PDF.js y esta el texto por pagina en 'cuerpo').
+        html TEXT,
+        pagina INTEGER,
         orden INTEGER NOT NULL,
         UNIQUE (recurso_pk, localizador)
       );

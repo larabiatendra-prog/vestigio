@@ -1,11 +1,17 @@
 # PROJECT_STATE — Vestigio
 
 **Última actualización:** 2026-07-30
-**Fase:** Bloques 00–04 ejecutados (02–04 con deudas registradas); siguiente: Bloques 05–06 (lectores) y 09–10 (búsqueda y biblioteca en la interfaz)
-**Versiones:** app `0.1.0` · corpus `2026-C0-semilla (desarrollo)` · información vigente `—`
+**Fase:** Bloques 00–06 ejecutados (con deudas registradas); siguiente: Bloque 07 (EPUB e imágenes) u 08 (ZIM), luego 09–12
+**Versiones:** app `0.1.0` · corpus `2026-C1-semilla (desarrollo)` · información vigente `—`
+
+> **Vestigio ya es utilizable**: se le echa una carpeta de documentos, se abre y se lee. Buscar → abrir en la sección o página exacta funciona de extremo a extremo.
 
 - **La CLI de ingesta existe** (`tools/admin-cli`, `vestigio-admin`): `ingerir <carpeta> --salida <edición>` analiza en bloque, deduplica por hash exacto, detecta formato por firma binaria, extrae título/idioma/texto con honestidad (lo desconocido queda ausente), copia originales content-addressed, construye el catálogo SQLite con FTS y snippets, registra `content-sources.lock.json` y escribe el manifiesto SHA-256 de CONTENT. `verificar` detecta un byte alterado, archivos ausentes e intrusos. UUID derivados del contenido: reconstruir la edición conserva las anclas de los datos personales. Derechos por defecto: `personal-preservation` (conservador; nunca se publica sin decisión).
-- Verificado en vivo: biblioteca semilla de 3 documentos ingerida en la carpeta portable de desarrollo; la app la abre y muestra `corpus: 2026-C0-semilla`; snippet de búsqueda con tilde funcionando.
+- **Formatos textuales seguros (bloque 05, `packages/content-pipeline`):** saneado de HTML por lista blanca con tokenizador propio (reconstruye lo permitido en vez de "limpiar" cadenas); elimina scripts, handlers, iframes/formularios/objetos, `javascript:`/`data:` incluso ofuscados con entidades o tabuladores, y todo recurso remoto. Markdown y TXT se convierten y pasan por el mismo saneado. Segmentación estructural con localizadores jerárquicos estables (`sec-1`, `sec-1-1`) que no cambian al reconstruir.
+- **PDF (bloque 06):** extracción por página en construcción con `pdfjs-dist` 6.2.108 fijado, límites de páginas/tiempo, y diagnóstico honesto (con texto, parcial, escaneado candidato a OCR, cifrado, ilegible). Un PDF corrupto no tumba la ingesta ni la app. Lector en pantalla con PDF.js empaquetado (worker copiado junto a la ventana, sin CDN), navegación por páginas, zoom y vista textual marcada como extracción.
+- **Interfaz de biblioteca y lectura:** buscador con fragmentos resaltados, listado del catálogo, lector de texto con índice lateral y sección destacada, lector de PDF que abre en la página del resultado. Todo con El Páramo (E3).
+- **Protocolo `vestigio://original/<uuid>`:** el renderer pide contenido por identificador; el main resuelve la ruta y comprueba que queda dentro de CONTENT. Nunca hay rutas de disco en el renderer.
+- Verificado en vivo: biblioteca semilla (2 markdown, 1 txt, 1 PDF de 4 páginas) ingerida y abierta por la app; buscar "generador" lleva a la página 3 del PDF, "lejía" a la sección del markdown.
 
 ## Estado actual
 
@@ -38,6 +44,8 @@
 - Captura de red a nivel de sistema operativo como aceptación (bloque 19; el bloqueo por `webRequest` + tests unitarios ya cubre la app).
 - Revalidación de la UI del paquete final cuando se resuelva la firma.
 - Tablas editoriales completas del catálogo (rights por acción, eventos/agentes, format validation, coverage/scenarios) → bloque 04+, junto a la CLI que las construye y usa (E1: el esquema crece con su herramienta, no antes).
+- **Bloques 05–06:** validadores externos por formato (DROID/Siegfried, qpdf/JHOVE, veraPDF) → bloque 19 con el corpus real; OCR selectivo → cuando exista material escaneado que lo justifique; WARC/WACZ preservacional → caso excepcional, sin corpus que lo pida; miniaturas de PDF → con la vista de biblioteca en rejilla (bloque 10).
+- **Puerta de UX pendiente (Daniel):** ronda R1 de `UX_TEST_PLAN.md` — la biblioteca ya es usable, así que la prueba de encontrabilidad y lectura con tareas reales ya tiene sentido.
 
 ## Deudas (aplazamientos deliberados por E2, con bloque de destino)
 
@@ -49,4 +57,4 @@
 
 ## Siguiente paso previsto
 
-Bloque 04 con enfoque E1: la CLI administrativa de ingesta automática en bloque (carpeta entera → catálogo buscable con metadatos honestos), reutilizando el fixture builder como núcleo. Después 05–06 (HTML/PDF) y 09–11 (búsqueda y lectura) hacia el hito "biblioteca usable".
+El hito "biblioteca usable" (E2) está alcanzado. Opciones ordenadas por valor: bloque 07 (EPUB e imágenes, amplía formatos con el mismo lector de texto), bloque 08 (ZIM/Kiwix, la pieza grande que falta), o bloque 12 (favoritos, notas y progreso en la interfaz — el estado personal ya existe en la base, falta exponerlo). Decide Daniel.

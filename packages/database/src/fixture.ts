@@ -27,7 +27,21 @@ export interface RecursoCanonico {
   resumen?: string;
   origen?: { url?: string; adquirido: string; sha256: string };
   assets?: AssetCanonico[];
-  segmentos?: { localizador: string; titulo?: string; cuerpo: string }[];
+  segmentos?: SegmentoCanonico[];
+  /** Que se pudo extraer del original y con que limitaciones (E1). */
+  estadoTexto?: string;
+  detalleTexto?: string;
+  numPaginas?: number;
+}
+
+export interface SegmentoCanonico {
+  localizador: string;
+  titulo?: string | null;
+  nivel?: number | null;
+  cuerpo: string;
+  /** Derivado de acceso saneado; null en formatos que se leen en original. */
+  html?: string | null;
+  pagina?: number | null;
 }
 
 export interface VersionesCatalogo {
@@ -50,7 +64,7 @@ export function construirCatalogoFixture(
 
     db.exec('BEGIN');
     const insertarRecurso = db.prepare(
-      'INSERT INTO recursos (id, slug, titulo, idioma, formato, derechos, resumen, origen_url, origen_adquirido, origen_sha256) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+      'INSERT INTO recursos (id, slug, titulo, idioma, formato, derechos, resumen, estado_texto, detalle_texto, num_paginas, origen_url, origen_adquirido, origen_sha256) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
     );
     const insertarAsset = db.prepare(
       'INSERT INTO assets (id, recurso_pk, formato, ruta_logica, bytes, sha256) VALUES (?, ?, ?, ?, ?, ?)',
@@ -66,7 +80,7 @@ export function construirCatalogoFixture(
       'INSERT INTO recurso_etiquetas (recurso_pk, etiqueta_pk) SELECT ?, pk FROM etiquetas WHERE nombre = ?',
     );
     const insertarSegmento = db.prepare(
-      'INSERT INTO segmentos (recurso_pk, localizador, titulo, cuerpo, orden) VALUES (?, ?, ?, ?, ?)',
+      'INSERT INTO segmentos (recurso_pk, localizador, titulo, nivel, cuerpo, html, pagina, orden) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
     );
     const insertarFts = db.prepare(
       'INSERT INTO segmentos_fts (rowid, titulo, cuerpo) VALUES (?, ?, ?)',
@@ -81,6 +95,9 @@ export function construirCatalogoFixture(
         recurso.formato,
         recurso.derechos,
         recurso.resumen ?? null,
+        recurso.estadoTexto ?? 'desconocido',
+        recurso.detalleTexto ?? null,
+        recurso.numPaginas ?? null,
         recurso.origen?.url ?? null,
         recurso.origen?.adquirido ?? null,
         recurso.origen?.sha256 ?? null,
@@ -108,7 +125,10 @@ export function construirCatalogoFixture(
           recursoPk,
           segmento.localizador,
           segmento.titulo ?? null,
+          segmento.nivel ?? null,
           segmento.cuerpo,
+          segmento.html ?? null,
+          segmento.pagina ?? null,
           orden++,
         );
         insertarFts.run(Number(s.lastInsertRowid), segmento.titulo ?? '', segmento.cuerpo);
