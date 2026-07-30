@@ -1,0 +1,24 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://vestigio.local/schemas/release.schema.json",
+  "title": "Metadatos de release",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["versiones", "fecha", "esquema", "manifiestoSha256"],
+  "properties": {
+    "versiones": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["app", "corpus", "informacionVigente"],
+      "properties": {
+        "app": { "type": "string", "pattern": "^\\d+\\.\\d+\\.\\d+$" },
+        "corpus": { "type": "string", "minLength": 1 },
+        "informacionVigente": { "type": "string", "minLength": 1 }
+      }
+    },
+    "fecha": { "type": "string", "format": "date-time" },
+    "esquema": { "type": "integer", "minimum": 1 },
+    "manifiestoSha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+    "firmaMinisign": { "type": "string" }
+  }
+}

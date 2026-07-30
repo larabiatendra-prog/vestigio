@@ -1,0 +1,73 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://vestigio.local/schemas/busqueda.schema.json",
+  "title": "Consulta y resultado de busqueda",
+  "type": "object",
+  "additionalProperties": false,
+  "$defs": {
+    "consulta": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["texto"],
+      "properties": {
+        "texto": { "type": "string", "minLength": 1, "maxLength": 500 },
+        "filtros": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "modulos": {
+              "type": "array",
+              "items": { "type": "string", "pattern": "^(M(0[1-9]|1[0-2])|MV)$" }
+            },
+            "formatos": {
+              "type": "array",
+              "items": {
+                "enum": ["pdf", "epub", "html", "markdown", "txt", "zim", "imagen", "audio"]
+              }
+            },
+            "idiomas": { "type": "array", "items": { "type": "string" } },
+            "geografia": { "type": "array", "items": { "type": "string" } },
+            "riesgoMaximo": { "enum": ["bajo", "moderado", "alto", "critico"] }
+          }
+        },
+        "limite": { "type": "integer", "minimum": 1, "maximum": 200 },
+        "incluirZim": { "type": "boolean" }
+      }
+    },
+    "resultado": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["origen", "titulo", "motivo", "puntuacion"],
+      "properties": {
+        "origen": { "enum": ["catalogo", "zim"] },
+        "recursoId": { "type": "string", "format": "uuid" },
+        "coleccionZim": { "type": "string" },
+        "titulo": { "type": "string", "minLength": 1 },
+        "snippet": { "type": "string" },
+        "localizador": { "type": "string" },
+        "motivo": { "enum": ["exacta", "sin-tilde", "alias", "aproximada"] },
+        "puntuacion": { "type": "number" }
+      },
+      "oneOf": [
+        {
+          "properties": {
+            "origen": { "const": "catalogo" },
+            "recursoId": { "type": "string", "format": "uuid" }
+          },
+          "required": ["recursoId"]
+        },
+        {
+          "properties": {
+            "origen": { "const": "zim" },
+            "coleccionZim": { "type": "string" }
+          },
+          "required": ["coleccionZim"]
+        }
+      ]
+    }
+  },
+  "properties": {
+    "consulta": { "$ref": "#/$defs/consulta" },
+    "resultado": { "$ref": "#/$defs/resultado" }
+  }
+}

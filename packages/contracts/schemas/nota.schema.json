@@ -1,0 +1,47 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://vestigio.local/schemas/nota.schema.json",
+  "title": "Nota personal anclada",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["id", "destino", "texto", "creada"],
+  "properties": {
+    "id": { "type": "string", "format": "uuid" },
+    "destino": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["tipo", "recursoId"],
+          "properties": {
+            "tipo": { "const": "recurso" },
+            "recursoId": { "type": "string", "format": "uuid" }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["tipo", "recursoId", "segmento"],
+          "properties": {
+            "tipo": { "const": "segmento" },
+            "recursoId": { "type": "string", "format": "uuid" },
+            "segmento": { "type": "string", "minLength": 1 }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["tipo", "recursoId", "pagina"],
+          "properties": {
+            "tipo": { "const": "pagina" },
+            "recursoId": { "type": "string", "format": "uuid" },
+            "pagina": { "type": "integer", "minimum": 1 }
+          }
+        }
+      ]
+    },
+    "texto": { "type": "string", "minLength": 1, "maxLength": 20000 },
+    "creada": { "type": "string", "format": "date-time" },
+    "modificada": { "type": "string", "format": "date-time" }
+  }
+}
