@@ -1,0 +1,11 @@
+{
+  "name": "@vestigio/database",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Persistencia de Vestigio: dos SQLite (contenido RO + personal RW) sobre node:sqlite.",
+  "license": "Apache-2.0",
+  "exports": {
+    ".": "./src/index.ts"
+  }
+}

@@ -18,5 +18,9 @@ export const mainConfig: Configuration = {
   },
   resolve: {
     extensions: ['.js', '.ts', '.jsx', '.tsx', '.css', '.json'],
+    // Imports estilo NodeNext ('./modulo.js' apuntando a .ts) en workspaces.
+    extensionAlias: {
+      '.js': ['.ts', '.js'],
+    },
   },
 };

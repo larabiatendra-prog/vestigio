@@ -45,6 +45,7 @@ export class SupervisorDatos {
   constructor(
     private readonly registro: Registro,
     private readonly modo: 'lectura-escritura' | 'solo-lectura',
+    private readonly rutas: { userData: string; content: string; backups: string },
     private readonly alCambiar: (estado: EstadoSupervisor) => void = () => undefined,
   ) {}
 
@@ -92,6 +93,9 @@ export class SupervisorDatos {
       env: {
         VESTIGIO_EPOCH: String(epoch),
         VESTIGIO_MODO: this.modo,
+        VESTIGIO_RUTA_USER_DATA: this.rutas.userData,
+        VESTIGIO_RUTA_CONTENT: this.rutas.content,
+        VESTIGIO_RUTA_BACKUPS: this.rutas.backups,
         ...(process.env['VESTIGIO_PRUEBAS'] === '1' ? { VESTIGIO_PRUEBAS: '1' } : {}),
       },
     });

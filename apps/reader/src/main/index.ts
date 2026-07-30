@@ -75,7 +75,11 @@ const politicaRed: PoliticaRed = {
   desarrollo: enDesarrollo,
 };
 
-const supervisor = new SupervisorDatos(registro, rutas.modo);
+const supervisor = new SupervisorDatos(registro, rutas.modo, {
+  userData: rutas.userData,
+  content: rutas.content,
+  backups: rutas.backups,
+});
 
 let ventana: BrowserWindow | null = null;
 
@@ -142,11 +146,22 @@ ipcMain.handle('estado:obtener', async (evento): Promise<EstadoAplicacion> => {
   const fase = supervisor.estadoActual();
   let detalle: string | null = null;
   let epoch: number | null = null;
+  let basePersonal: EstadoAplicacion['basePersonal'] = null;
+  let corpus: string | null = null;
   if (fase.fase === 'activo') {
     epoch = fase.epoch;
     try {
       const estadoServicio = (await supervisor.enviar('estado')) as EstadoServicio;
       detalle = estadoServicio.listo ? 'operativo' : 'inicializando';
+      corpus = estadoServicio.catalogo.corpusVersion;
+      if (estadoServicio.basePersonal !== null) {
+        basePersonal = {
+          abierta: estadoServicio.basePersonal.abierta,
+          cierreLimpioAnterior: estadoServicio.basePersonal.cierreLimpioAnterior,
+          favoritos: estadoServicio.basePersonal.favoritos,
+          notas: estadoServicio.basePersonal.notas,
+        };
+      }
     } catch (error) {
       detalle = error instanceof Error ? error.message : 'sin respuesta';
     }
@@ -154,10 +169,11 @@ ipcMain.handle('estado:obtener', async (evento): Promise<EstadoAplicacion> => {
     detalle = fase.motivo;
   }
   return {
-    versiones: { app: VERSION_APP, corpus: null, informacionVigente: null },
+    versiones: { app: VERSION_APP, corpus, informacionVigente: null },
     modo: rutas.modo,
     rootPortable: rutas.root,
     servicioDatos: { fase: fase.fase, epoch, detalle },
+    basePersonal,
     redExterna: 'bloqueada',
   };
 });

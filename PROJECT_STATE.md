@@ -1,7 +1,7 @@
 # PROJECT_STATE — Vestigio
 
 **Última actualización:** 2026-07-30
-**Fase:** Bloques 00–01 completados; Bloque 02 con núcleo completado (deudas registradas); siguiente: Bloque 03 (dos SQLite)
+**Fase:** Bloques 00–03 ejecutados (02 y 03 con deudas registradas); siguiente: Bloque 04 (CLI de ingesta)
 **Versiones:** app `0.1.0` · corpus `—` · información vigente `—`
 
 ## Estado actual
@@ -13,25 +13,28 @@
 - Matriz de capacidades congelada en `content/coverage/capabilities-1.0.yml` (guía, no puerta — E1).
 - Contratos de datos preliminares en `packages/contracts/`: tipos TypeScript + JSON Schemas con tests ajv de ejemplos válidos/inválidos.
 - **La aplicación existe** (`apps/reader/`, Electron 43 + React 19 + Forge/Webpack): main mínimo, preload tipado, renderer con la línea El Páramo, servicio de datos en `utilityProcess` con supervisor lease/epoch y mutaciones idempotentes, `PortablePathService` (marcador de entrega, modo solo lectura a %TEMP%), `NetworkPolicyService` (allowlist exacta), CSP estricta sin `unsafe-eval` ni en desarrollo, protocolo `vestigio://` (deniega todo aún), logging rotativo, single-instance por root. Empaquetado Windows x64 real con 7/7 fuses verificados en el binario (`scripts/verificar-fuses.mjs`).
-- Verificado en real: arranque empaquetado desde carpeta externa con espacios y eñe (crea USER_DATA/BACKUPS/LOGS/RUNTIME correctos), arranque dev completo con renderer conectado, 37 pruebas unitarias.
+- Verificado en real: arranque empaquetado desde carpeta externa con espacios y eñe (crea USER_DATA/BACKUPS/LOGS/RUNTIME correctos), arranque dev completo con renderer conectado, 50 pruebas.
+- **Persistencia real (`packages/database`, ADR-0007):** `node:sqlite` del runtime embebido (puerta 8/8 superada sobre el binario Electron: FTS5 con `ñ` preservada, backup API, readOnly y query_only). Dos bases: catálogo RO con `query_only` afirmado y personal RW con `journal_mode=DELETE`/`synchronous=EXTRA`/FK afirmados tras cada apertura. Migrador transaccional con rollback probado, backup solo por Backup API con dos snapshots rotativos verificados, marca de cierre limpio + comprobación reforzada tras cierre sucio, idempotencia de mutaciones persistente en tabla, datos anclados a UUID, fixture builder canónico. El servicio de datos abre las bases y expone favoritos/notas/progreso tipados; la ventana muestra los datos personales en vivo.
 
 ## Hecho
 
-| Fecha      | Qué                                                                                                                                                  |
-| ---------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 2026-07-30 | Bloque 00: estructura, documentos, tooling, tests de guardia, CI. Repo remoto creado, push y CI verde.                                               |
-| 2026-07-30 | Bloque 01: especificación ejecutable, 6 ADR, amenazas, requisitos, capacidades y contratos preliminares.                                             |
-| 2026-07-30 | Bloque 02 (núcleo): shell Electron portable y seguro, supervisor lease/epoch, empaquetado con fuses verificados, primera ventana real con El Páramo. |
+| Fecha      | Qué                                                                                                                                                              |
+| ---------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 2026-07-30 | Bloque 00: estructura, documentos, tooling, tests de guardia, CI. Repo remoto creado, push y CI verde.                                                           |
+| 2026-07-30 | Bloque 01: especificación ejecutable, 6 ADR, amenazas, requisitos, capacidades y contratos preliminares.                                                         |
+| 2026-07-30 | Bloque 02 (núcleo): shell Electron portable y seguro, supervisor lease/epoch, empaquetado con fuses verificados, primera ventana real con El Páramo.             |
+| 2026-07-30 | Bloque 03: node:sqlite con puerta superada (ADR-0007), dos bases con PRAGMAs afirmados, migrador, backup rotativo, idempotencia persistente y servicio cableado. |
 
 ## Bloqueos
 
 - **Firma del binario (decisión de Daniel):** grabar los fuses invalida la firma Authenticode de Electron y el Control de aplicaciones inteligente de Windows bloquea el `Vestigio.exe` empaquetado en NODO (detalle y opciones en `docs/TOOLCHAIN.md`). No impide desarrollar (el modo dev usa el electron.exe firmado), pero sí revalidar la UI empaquetada en esta máquina.
 
-## Deudas del Bloque 02 (pendientes, con destino)
+## Deudas de los Bloques 02–03 (pendientes, con destino)
 
-- Pruebas end-to-end de la matriz de fallos sobre el paquete real (crash/reinicio del servicio en vivo, mutación con respuesta perdida, rechazo de segundo escritor, modo solo lectura real): se harán con datos reales del bloque 03, donde dejan de ser simulacros vacíos.
+- Pruebas end-to-end sobre el paquete real con Electron vivo: crash/reinicio del servicio con la base abierta, mutación con respuesta perdida de extremo a extremo, rechazo de un segundo escritor entre procesos, medio de solo lectura físico y NTFS/exFAT en USB real → bloque 16 (BAT/doctor/recuperación), donde se ensaya la entrega completa. La lógica equivalente está cubierta por tests unitarios/integración (50 en verde).
 - Captura de red a nivel de sistema operativo como aceptación (bloque 19; el bloqueo por `webRequest` + tests unitarios ya cubre la app).
 - Revalidación de la UI del paquete final cuando se resuelva la firma.
+- Tablas editoriales completas del catálogo (rights por acción, eventos/agentes, format validation, coverage/scenarios) → bloque 04+, junto a la CLI que las construye y usa (E1: el esquema crece con su herramienta, no antes).
 
 ## Deudas (aplazamientos deliberados por E2, con bloque de destino)
 
@@ -43,4 +46,4 @@
 
 ## Siguiente paso previsto
 
-Bloque 03: las dos SQLite reales (contenido RO + personal RW) sobre el servicio de datos ya supervisado, con migraciones, PRAGMAs afirmados y las pruebas de crash que saldan parte de la deuda del 02. Camino al hito "biblioteca usable" (E2): 03 → 04–06 (ingesta + HTML/PDF) → 09–11 (búsqueda y lectura).
+Bloque 04 con enfoque E1: la CLI administrativa de ingesta automática en bloque (carpeta entera → catálogo buscable con metadatos honestos), reutilizando el fixture builder como núcleo. Después 05–06 (HTML/PDF) y 09–11 (búsqueda y lectura) hacia el hito "biblioteca usable".

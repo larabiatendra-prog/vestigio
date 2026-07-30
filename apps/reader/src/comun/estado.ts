@@ -11,6 +11,12 @@ export interface EstadoAplicacion {
     epoch: number | null;
     detalle: string | null;
   };
+  basePersonal: {
+    abierta: boolean;
+    cierreLimpioAnterior: boolean;
+    favoritos: number;
+    notas: number;
+  } | null;
   /** Constante por diseno: la app no habla con el exterior. */
   redExterna: 'bloqueada';
 }

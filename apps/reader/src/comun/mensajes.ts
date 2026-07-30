@@ -4,7 +4,14 @@
 // idMutacion idempotente: tras perder una respuesta se consulta su estado,
 // nunca se reintenta a ciegas.
 
-export const TIPOS_PETICION = ['ping', 'estado', 'mutar', 'estado-mutacion', 'cerrar'] as const;
+export const TIPOS_PETICION = [
+  'ping',
+  'estado',
+  'consultar',
+  'mutar',
+  'estado-mutacion',
+  'cerrar',
+] as const;
 
 export type TipoPeticion = (typeof TIPOS_PETICION)[number];
 
@@ -41,6 +48,17 @@ export interface EstadoServicio {
   listo: boolean;
   modo: 'lectura-escritura' | 'solo-lectura';
   epoch: number;
+  basePersonal: {
+    abierta: boolean;
+    cierreLimpioAnterior: boolean;
+    versionEsquema: number;
+    favoritos: number;
+    notas: number;
+  } | null;
+  catalogo: {
+    presente: boolean;
+    corpusVersion: string | null;
+  };
 }
 
 function esObjeto(valor: unknown): valor is Record<string, unknown> {

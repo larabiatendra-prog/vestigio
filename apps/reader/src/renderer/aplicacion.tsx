@@ -64,6 +64,16 @@ export function Aplicacion(): React.JSX.Element {
           </span>
         </div>
         <div className="fila">
+          <span className="nombre">Datos personales</span>
+          <span className="valor">
+            {estado?.basePersonal === null || estado?.basePersonal === undefined
+              ? estado?.modo === 'solo-lectura'
+                ? 'en reposo — soporte de solo lectura'
+                : 'preparando'
+              : `${String(estado.basePersonal.favoritos)} favoritos · ${String(estado.basePersonal.notas)} notas${estado.basePersonal.cierreLimpioAnterior ? '' : ' · revisados tras cierre brusco'}`}
+          </span>
+        </div>
+        <div className="fila">
           <span className="nombre">Modo del soporte</span>
           <span className="valor">
             {estado?.modo === 'solo-lectura' ? 'solo lectura — consulta' : 'lectura y escritura'}
