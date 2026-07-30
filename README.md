@@ -11,6 +11,7 @@ Es un producto personal, de un solo usuario, del ecosistema NODO.
 - [PLAN_MAESTRO.md](PLAN_MAESTRO.md) — la especificación completa del producto (versión 2.0).
 - [ENMIENDAS.md](ENMIENDAS.md) — decisiones del propietario que prevalecen sobre el plan.
 - [PROJECT_STATE.md](PROJECT_STATE.md) — estado real del proyecto en cada momento.
+- [BITACORA.md](BITACORA.md) — qué se hizo cada jornada, en lenguaje llano.
 - [CLAUDE.md](CLAUDE.md) — reglas de trabajo para la IA constructora.
 
 ## Qué contiene este repositorio
