@@ -1,8 +1,11 @@
 # PROJECT_STATE — Vestigio
 
 **Última actualización:** 2026-07-30
-**Fase:** Bloques 00–03 ejecutados (02 y 03 con deudas registradas); siguiente: Bloque 04 (CLI de ingesta)
-**Versiones:** app `0.1.0` · corpus `—` · información vigente `—`
+**Fase:** Bloques 00–04 ejecutados (02–04 con deudas registradas); siguiente: Bloques 05–06 (lectores) y 09–10 (búsqueda y biblioteca en la interfaz)
+**Versiones:** app `0.1.0` · corpus `2026-C0-semilla (desarrollo)` · información vigente `—`
+
+- **La CLI de ingesta existe** (`tools/admin-cli`, `vestigio-admin`): `ingerir <carpeta> --salida <edición>` analiza en bloque, deduplica por hash exacto, detecta formato por firma binaria, extrae título/idioma/texto con honestidad (lo desconocido queda ausente), copia originales content-addressed, construye el catálogo SQLite con FTS y snippets, registra `content-sources.lock.json` y escribe el manifiesto SHA-256 de CONTENT. `verificar` detecta un byte alterado, archivos ausentes e intrusos. UUID derivados del contenido: reconstruir la edición conserva las anclas de los datos personales. Derechos por defecto: `personal-preservation` (conservador; nunca se publica sin decisión).
+- Verificado en vivo: biblioteca semilla de 3 documentos ingerida en la carpeta portable de desarrollo; la app la abre y muestra `corpus: 2026-C0-semilla`; snippet de búsqueda con tilde funcionando.
 
 ## Estado actual
 

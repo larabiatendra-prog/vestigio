@@ -6,6 +6,15 @@ import { DatabaseSync } from 'node:sqlite';
 import { APPLICATION_ID_CONTENIDO, MIGRACIONES_CONTENIDO } from './esquemas.js';
 import { migrar } from './migrador.js';
 
+export interface AssetCanonico {
+  id: string;
+  roles: string[];
+  formato: string;
+  rutaLogica: string;
+  bytes: number;
+  sha256: string;
+}
+
 export interface RecursoCanonico {
   id: string;
   slug: string;
@@ -16,6 +25,8 @@ export interface RecursoCanonico {
   modulos: string[];
   etiquetas?: string[];
   resumen?: string;
+  origen?: { url?: string; adquirido: string; sha256: string };
+  assets?: AssetCanonico[];
   segmentos?: { localizador: string; titulo?: string; cuerpo: string }[];
 }
 
@@ -39,8 +50,12 @@ export function construirCatalogoFixture(
 
     db.exec('BEGIN');
     const insertarRecurso = db.prepare(
-      'INSERT INTO recursos (id, slug, titulo, idioma, formato, derechos, resumen) VALUES (?, ?, ?, ?, ?, ?, ?)',
+      'INSERT INTO recursos (id, slug, titulo, idioma, formato, derechos, resumen, origen_url, origen_adquirido, origen_sha256) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
     );
+    const insertarAsset = db.prepare(
+      'INSERT INTO assets (id, recurso_pk, formato, ruta_logica, bytes, sha256) VALUES (?, ?, ?, ?, ?, ?)',
+    );
+    const insertarRol = db.prepare('INSERT INTO asset_roles (asset_pk, rol) VALUES (?, ?)');
     const insertarModulo = db.prepare(
       'INSERT INTO recurso_modulos (recurso_pk, modulo) VALUES (?, ?)',
     );
@@ -51,7 +66,7 @@ export function construirCatalogoFixture(
       'INSERT INTO recurso_etiquetas (recurso_pk, etiqueta_pk) SELECT ?, pk FROM etiquetas WHERE nombre = ?',
     );
     const insertarSegmento = db.prepare(
-      'INSERT INTO segmentos (recurso_pk, localizador, titulo, orden) VALUES (?, ?, ?, ?)',
+      'INSERT INTO segmentos (recurso_pk, localizador, titulo, cuerpo, orden) VALUES (?, ?, ?, ?, ?)',
     );
     const insertarFts = db.prepare(
       'INSERT INTO segmentos_fts (rowid, titulo, cuerpo) VALUES (?, ?, ?)',
@@ -66,8 +81,22 @@ export function construirCatalogoFixture(
         recurso.formato,
         recurso.derechos,
         recurso.resumen ?? null,
+        recurso.origen?.url ?? null,
+        recurso.origen?.adquirido ?? null,
+        recurso.origen?.sha256 ?? null,
       );
       const recursoPk = Number(r.lastInsertRowid);
+      for (const asset of recurso.assets ?? []) {
+        const a = insertarAsset.run(
+          asset.id,
+          recursoPk,
+          asset.formato,
+          asset.rutaLogica,
+          asset.bytes,
+          asset.sha256,
+        );
+        for (const rol of asset.roles) insertarRol.run(Number(a.lastInsertRowid), rol);
+      }
       for (const modulo of recurso.modulos) insertarModulo.run(recursoPk, modulo);
       for (const etiqueta of recurso.etiquetas ?? []) {
         insertarEtiqueta.run(etiqueta);
@@ -79,6 +108,7 @@ export function construirCatalogoFixture(
           recursoPk,
           segmento.localizador,
           segmento.titulo ?? null,
+          segmento.cuerpo,
           orden++,
         );
         insertarFts.run(Number(s.lastInsertRowid), segmento.titulo ?? '', segmento.cuerpo);

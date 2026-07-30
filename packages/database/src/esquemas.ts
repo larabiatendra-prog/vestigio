@@ -66,11 +66,14 @@ export const MIGRACIONES_CONTENIDO: Migracion[] = [
         PRIMARY KEY (asset_pk, rol)
       );
 
+      -- El cuerpo canonico vive aqui (para lectura y snippets); el indice
+      -- FTS es de contenido externo sobre esta tabla.
       CREATE TABLE segmentos (
         pk INTEGER PRIMARY KEY,
         recurso_pk INTEGER NOT NULL REFERENCES recursos(pk),
         localizador TEXT NOT NULL,
         titulo TEXT,
+        cuerpo TEXT NOT NULL,
         orden INTEGER NOT NULL,
         UNIQUE (recurso_pk, localizador)
       );
@@ -78,7 +81,8 @@ export const MIGRACIONES_CONTENIDO: Migracion[] = [
       CREATE VIRTUAL TABLE segmentos_fts USING fts5(
         titulo,
         cuerpo,
-        content='',
+        content='segmentos',
+        content_rowid='pk',
         tokenize='unicode61 remove_diacritics 0'
       );
 

@@ -25,4 +25,9 @@ export {
   type Favorito,
   type NotaPersonal,
 } from './repositorio-personal.js';
-export { construirCatalogoFixture } from './fixture.js';
+export {
+  construirCatalogoFixture,
+  type AssetCanonico,
+  type RecursoCanonico,
+  type VersionesCatalogo,
+} from './fixture.js';

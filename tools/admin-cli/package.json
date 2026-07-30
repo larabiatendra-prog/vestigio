@@ -1,0 +1,17 @@
+{
+  "name": "@vestigio/admin-cli",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "vestigio-admin: herramienta administrativa de ingesta y construccion de ediciones. No forma parte de la entrega de consulta.",
+  "license": "Apache-2.0",
+  "scripts": {
+    "admin": "tsx src/cli.ts"
+  },
+  "dependencies": {
+    "@vestigio/database": "*"
+  },
+  "devDependencies": {
+    "tsx": "^4.20.0"
+  }
+}
