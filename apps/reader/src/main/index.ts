@@ -17,8 +17,18 @@ import { aplicarPoliticasDeSesion, blindarVentana } from './seguridad';
 import type { PoliticaRed } from './politica-red';
 import { Registro } from './registro';
 import { SupervisorDatos } from './supervisor-datos';
+import { GestorKiwix } from './kiwix/proceso';
+import { buscarEnZim, ErrorKiwix } from './kiwix/cliente';
+import { VisorZim, type RecuadroVista } from './kiwix/vista';
 import { VERSION_APP } from '../comun/versiones';
-import type { CoincidenciaUI, EstadoAplicacion, FichaUI, RecursoResumenUI } from '../comun/estado';
+import type {
+  CoincidenciaUI,
+  EstadoAplicacion,
+  EstadoZimUI,
+  FichaUI,
+  RecursoResumenUI,
+  ResultadoZimUI,
+} from '../comun/estado';
 import type { EstadoServicio } from '../comun/mensajes';
 
 declare const VENTANA_PRINCIPAL_WEBPACK_ENTRY: string;
@@ -81,7 +91,14 @@ const supervisor = new SupervisorDatos(registro, rutas.modo, {
   backups: rutas.backups,
 });
 
+const kiwix = new GestorKiwix({
+  dirBinario: join(rutas.root, 'TOOLS', 'kiwix'),
+  dirZim: join(rutas.content, 'zim'),
+  registro,
+});
+
 let ventana: BrowserWindow | null = null;
+let visorZim: VisorZim | null = null;
 
 function crearVentana(): void {
   ventana = new BrowserWindow({
@@ -202,6 +219,61 @@ ipcMain.handle('biblioteca:ficha', async (evento, recursoId: unknown): Promise<F
   return (await consultar(evento, { operacion: 'recurso-ficha', recursoId })) as FichaUI | null;
 });
 
+ipcMain.handle('zim:estado', (evento): EstadoZimUI => {
+  if (!emisorLegitimo(evento.senderFrame?.url ?? '')) throw new Error('emisor no autorizado');
+  const estado = kiwix.estadoActual();
+  return {
+    fase: estado.fase,
+    colecciones:
+      estado.fase === 'activo'
+        ? estado.colecciones.map((c) => ({
+            nombre: c.nombre,
+            titulo: c.titulo,
+            idioma: c.idioma,
+            fecha: c.fecha,
+            editor: c.editor,
+            articulos: c.articulos,
+          }))
+        : [],
+    detalle: estado.fase === 'sin-binario' || estado.fase === 'fallido' ? estado.detalle : null,
+  };
+});
+
+ipcMain.handle('zim:buscar', async (evento, texto: unknown): Promise<ResultadoZimUI[]> => {
+  if (!emisorLegitimo(evento.senderFrame?.url ?? '')) throw new Error('emisor no autorizado');
+  if (typeof texto !== 'string' || texto.trim().length === 0) return [];
+  try {
+    const respuesta = await buscarEnZim(kiwix.origen(), texto);
+    return respuesta.resultados.map((r) => ({
+      titulo: r.titulo,
+      libro: r.libro,
+      ruta: r.ruta,
+      fragmento: r.fragmento,
+    }));
+  } catch (error) {
+    // Kiwix caido o lento NUNCA rompe la busqueda: se informa y se sigue.
+    if (error instanceof ErrorKiwix && error.codigo !== 'sin-servidor') {
+      registro.aviso(`busqueda zim fallida: ${error.message}`);
+    }
+    return [];
+  }
+});
+
+ipcMain.handle('zim:abrir', (evento, ruta: unknown, recuadro: unknown): boolean => {
+  if (!emisorLegitimo(evento.senderFrame?.url ?? '')) throw new Error('emisor no autorizado');
+  const origen = kiwix.origen();
+  if (origen === null || typeof ruta !== 'string' || !ruta.startsWith('/content/')) return false;
+  if (ventana === null) return false;
+  visorZim ??= new VisorZim(ventana, registro);
+  visorZim.mostrar(`${origen}${ruta}`, origen, recuadro as RecuadroVista);
+  return true;
+});
+
+ipcMain.handle('zim:cerrar-visor', (evento): void => {
+  if (!emisorLegitimo(evento.senderFrame?.url ?? '')) throw new Error('emisor no autorizado');
+  visorZim?.ocultar();
+});
+
 ipcMain.handle('biblioteca:buscar', async (evento, texto: unknown): Promise<CoincidenciaUI[]> => {
   if (typeof texto !== 'string') throw new Error('consulta invalida');
   return (await consultar(evento, { operacion: 'buscar', texto })) as CoincidenciaUI[];
@@ -227,6 +299,15 @@ void app.whenReady().then(() => {
   supervisor.iniciar();
   crearVentana();
   registro.info(`vestigio ${VERSION_APP} arrancado en modo ${rutas.modo}`);
+
+  // Kiwix arranca en segundo plano: la biblioteca no espera por el, y si
+  // no esta disponible la app funciona igual (criterio del bloque 08).
+  void kiwix.iniciar().then((estado) => {
+    if (estado.fase === 'activo') {
+      politicaRed.origenKiwix = estado.origen;
+      registro.info(`politica de red: origen kiwix permitido ${estado.origen}`);
+    }
+  });
 });
 
 app.on('window-all-closed', () => {
@@ -238,12 +319,10 @@ app.on('before-quit', (evento) => {
   if (cerrandoOrdenadamente) return;
   evento.preventDefault();
   cerrandoOrdenadamente = true;
-  void supervisor
-    .cerrar()
-    .catch(() => undefined)
-    .then(() => {
-      limpiarTemporal(rutas);
-      registro.info('cierre ordenado completado');
-      app.quit();
-    });
+  visorZim?.ocultar();
+  void Promise.allSettled([supervisor.cerrar(), kiwix.detener()]).then(() => {
+    limpiarTemporal(rutas);
+    registro.info('cierre ordenado completado');
+    app.quit();
+  });
 });

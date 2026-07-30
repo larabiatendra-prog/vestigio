@@ -1,7 +1,7 @@
 # PROJECT_STATE — Vestigio
 
 **Última actualización:** 2026-07-30
-**Fase:** Bloques 00–06 ejecutados (con deudas registradas); siguiente: Bloque 07 (EPUB e imágenes) u 08 (ZIM), luego 09–12
+**Fase:** Bloques 00–06 y 08 ejecutados (con deudas registradas); siguiente: 07 (EPUB), 09 (fusión de búsqueda) o 12 (datos personales en la interfaz)
 **Versiones:** app `0.1.0` · corpus `2026-C1-semilla (desarrollo)` · información vigente `—`
 
 > **Vestigio ya es utilizable**: se le echa una carpeta de documentos, se abre y se lee. Buscar → abrir en la sección o página exacta funciona de extremo a extremo.
@@ -12,6 +12,8 @@
 - **Interfaz de biblioteca y lectura:** buscador con fragmentos resaltados, listado del catálogo, lector de texto con índice lateral y sección destacada, lector de PDF que abre en la página del resultado. Todo con El Páramo (E3).
 - **Protocolo `vestigio://original/<uuid>`:** el renderer pide contenido por identificador; el main resuelve la ruta y comprueba que queda dentro de CONTENT. Nunca hay rutas de disco en el renderer.
 - Verificado en vivo: biblioteca semilla (2 markdown, 1 txt, 1 PDF de 4 páginas) ingerida y abierta por la app; buscar "generador" lleva a la página 3 del PDF, "lejía" a la sección del markdown.
+- **Colecciones ZIM (bloque 08, ADR-0008):** `kiwix-serve` 3.8.1 como proceso separado en `TOOLS/kiwix/`, ligado solo a 127.0.0.1 con puerto dinámico propio, `--blockexternal` y `--attachToProcess`. Health-check que identifica la instancia (no basta que el puerto responda). El main es el único cliente HTTP y valida el **origen exacto**: otro puerto de loopback o `localhost` se rechazan. Búsqueda por la API pública con test contractual sobre respuestas reales. Visor en `WebContentsView` con sesión efímera, sin preload ni IPC, JavaScript desactivado y allowlist del origen propio. Los resultados ZIM aparecen en su propio grupo, sin reordenar los documentos catalogados.
+- Verificado en vivo con un ZIM real de 72 MB: el servidor **no responde desde la IP de red** (solo loopback), la búsqueda devuelve artículos, y al **matar Electron a la fuerza kiwix-serve muere solo** (sin procesos huérfanos).
 
 ## Estado actual
 
@@ -57,4 +59,8 @@
 
 ## Siguiente paso previsto
 
-El hito "biblioteca usable" (E2) está alcanzado. Opciones ordenadas por valor: bloque 07 (EPUB e imágenes, amplía formatos con el mismo lector de texto), bloque 08 (ZIM/Kiwix, la pieza grande que falta), o bloque 12 (favoritos, notas y progreso en la interfaz — el estado personal ya existe en la base, falta exponerlo). Decide Daniel.
+El hito "biblioteca usable" (E2) está alcanzado, con documentos propios y colecciones ZIM. Opciones: bloque 09 (fusión determinista de los dos buscadores con RRF y filtros), bloque 12 (favoritos, notas y progreso en la interfaz — la base ya los guarda), o bloque 07 (EPUB e imágenes). Decide Daniel.
+
+## Entorno de desarrollo
+
+`apps/reader/.portable-dev/` (ignorado por Git) contiene la entrega de pruebas: biblioteca semilla, `TOOLS/kiwix/` con kiwix-serve 3.8.1 y un ZIM de 72 MB prestado de WikiLocal como fixture. **Ese ZIM es de Wikipedia y no forma parte del corpus de Vestigio** (plan §2.5): solo sirve para probar la integración.

@@ -538,3 +538,16 @@ body {
     grid-column: 1 / -1;
   }
 }
+
+/* ---- Visor de colecciones ZIM ---------------------------------------- */
+
+.hueco-zim {
+  min-height: 62vh;
+  border: 1px solid var(--borde-salvia);
+  border-radius: 3px;
+  background: rgba(143, 174, 156, 0.04);
+}
+
+.resultado-donde.salvia {
+  color: var(--salvia-clara);
+}

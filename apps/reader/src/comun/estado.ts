@@ -58,6 +58,31 @@ export interface FichaUI extends RecursoResumenUI {
   segmentos: SegmentoUI[];
 }
 
+/** Resultado procedente de una coleccion ZIM (origen siempre visible). */
+export interface ResultadoZimUI {
+  titulo: string;
+  libro: string;
+  ruta: string;
+  fragmento: string;
+}
+
+/** Coleccion ZIM tal como se muestra: la evaluacion es de la coleccion,
+ *  no de cada uno de sus articulos (plan §8.4). */
+export interface ColeccionZimUI {
+  nombre: string;
+  titulo: string | null;
+  idioma: string | null;
+  fecha: string | null;
+  editor: string | null;
+  articulos: number | null;
+}
+
+export interface EstadoZimUI {
+  fase: string;
+  colecciones: ColeccionZimUI[];
+  detalle: string | null;
+}
+
 export interface CoincidenciaUI {
   recursoId: string;
   titulo: string;

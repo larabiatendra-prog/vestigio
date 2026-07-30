@@ -2,7 +2,14 @@
 // generico. El renderer no ve Node ni Electron.
 
 import { contextBridge, ipcRenderer } from 'electron';
-import type { CoincidenciaUI, EstadoAplicacion, FichaUI, RecursoResumenUI } from '../comun/estado';
+import type {
+  CoincidenciaUI,
+  EstadoAplicacion,
+  EstadoZimUI,
+  FichaUI,
+  RecursoResumenUI,
+  ResultadoZimUI,
+} from '../comun/estado';
 
 const api = {
   obtenerEstado: (): Promise<EstadoAplicacion> => ipcRenderer.invoke('estado:obtener'),
@@ -11,6 +18,13 @@ const api = {
     ipcRenderer.invoke('biblioteca:ficha', recursoId),
   buscar: (texto: string): Promise<CoincidenciaUI[]> =>
     ipcRenderer.invoke('biblioteca:buscar', texto),
+  estadoZim: (): Promise<EstadoZimUI> => ipcRenderer.invoke('zim:estado'),
+  buscarZim: (texto: string): Promise<ResultadoZimUI[]> => ipcRenderer.invoke('zim:buscar', texto),
+  abrirZim: (
+    ruta: string,
+    recuadro: { x: number; y: number; ancho: number; alto: number },
+  ): Promise<boolean> => ipcRenderer.invoke('zim:abrir', ruta, recuadro),
+  cerrarVisorZim: (): Promise<void> => ipcRenderer.invoke('zim:cerrar-visor'),
 };
 
 export type ApiVestigio = typeof api;

@@ -1,9 +1,20 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import type { CoincidenciaUI, EstadoAplicacion, FichaUI, RecursoResumenUI } from '../comun/estado';
+import type {
+  CoincidenciaUI,
+  EstadoAplicacion,
+  EstadoZimUI,
+  FichaUI,
+  RecursoResumenUI,
+  ResultadoZimUI,
+} from '../comun/estado';
 import { LectorTexto } from './lector-texto';
 import { LectorPdf } from './lector-pdf';
+import { VisorZim } from './visor-zim';
 
-type Vista = { modo: 'biblioteca' } | { modo: 'lectura'; recursoId: string };
+type Vista =
+  | { modo: 'biblioteca' }
+  | { modo: 'lectura'; recursoId: string }
+  | { modo: 'zim'; articulo: ResultadoZimUI };
 
 interface Destino {
   localizador: string | null;
@@ -38,6 +49,8 @@ export function Aplicacion(): React.JSX.Element {
   const [biblioteca, setBiblioteca] = useState<RecursoResumenUI[]>([]);
   const [consulta, setConsulta] = useState('');
   const [resultados, setResultados] = useState<CoincidenciaUI[] | null>(null);
+  const [resultadosZim, setResultadosZim] = useState<ResultadoZimUI[] | null>(null);
+  const [estadoZim, setEstadoZim] = useState<EstadoZimUI | null>(null);
   const [buscando, setBuscando] = useState(false);
   const [vista, setVista] = useState<Vista>({ modo: 'biblioteca' });
   const [ficha, setFicha] = useState<FichaUI | null>(null);
@@ -79,17 +92,44 @@ export function Aplicacion(): React.JSX.Element {
       .catch(() => setFicha(null));
   }, [vista]);
 
+  useEffect(() => {
+    // El estado de las colecciones se consulta aparte: Kiwix tarda en
+    // arrancar y la biblioteca no debe esperarlo.
+    let activo = true;
+    const mirar = (): void => {
+      window.vestigio
+        .estadoZim()
+        .then((z) => {
+          if (activo) setEstadoZim(z);
+        })
+        .catch(() => undefined);
+    };
+    mirar();
+    const intervalo = setInterval(mirar, 4000);
+    return () => {
+      activo = false;
+      clearInterval(intervalo);
+    };
+  }, []);
+
   const buscar = useCallback((texto: string) => {
     if (texto.trim().length === 0) {
       setResultados(null);
+      setResultadosZim(null);
       return;
     }
     setBuscando(true);
+    // Documentos catalogados primero y estables; los ZIM llegan aparte y
+    // nunca reordenan ni bloquean la lista que ya se esta leyendo (§9.3).
     window.vestigio
       .buscar(texto)
       .then(setResultados)
       .catch(() => setResultados([]))
       .finally(() => setBuscando(false));
+    window.vestigio
+      .buscarZim(texto)
+      .then(setResultadosZim)
+      .catch(() => setResultadosZim([]));
   }, []);
 
   useEffect(() => {
@@ -117,6 +157,17 @@ export function Aplicacion(): React.JSX.Element {
     setVista({ modo: 'biblioteca' });
     setDestino({ localizador: null, pagina: null });
   };
+
+  if (vista.modo === 'zim') {
+    return (
+      <main className="pantalla ancha">
+        <button type="button" className="volver" onClick={volver}>
+          ← biblioteca
+        </button>
+        <VisorZim articulo={vista.articulo} alCerrar={volver} />
+      </main>
+    );
+  }
 
   if (vista.modo === 'lectura') {
     return (
@@ -173,8 +224,9 @@ export function Aplicacion(): React.JSX.Element {
       </section>
 
       {resultados !== null && (
-        <section className="panel" aria-label="Resultados de la búsqueda" aria-busy={buscando}>
+        <section className="panel" aria-label="Documentos catalogados" aria-busy={buscando}>
           <p className="etiqueta">
+            Documentos catalogados ·{' '}
             {resultados.length === 0
               ? 'sin coincidencias'
               : `${String(resultados.length)} ${resultados.length === 1 ? 'coincidencia' : 'coincidencias'}`}
@@ -202,6 +254,24 @@ export function Aplicacion(): React.JSX.Element {
               tu búsqueda por su cuenta.
             </p>
           )}
+        </section>
+      )}
+
+      {resultadosZim !== null && resultadosZim.length > 0 && (
+        <section className="panel" aria-label="Artículos de colecciones">
+          <p className="etiqueta">Artículos de colecciones · {String(resultadosZim.length)}</p>
+          {resultadosZim.map((r, i) => (
+            <button
+              type="button"
+              className="resultado"
+              key={`${r.libro}-${r.ruta}-${String(i)}`}
+              onClick={() => setVista({ modo: 'zim', articulo: r })}
+            >
+              <span className="resultado-titulo">{r.titulo}</span>
+              <span className="resultado-donde salvia">colección · {r.libro}</span>
+              <span className="resultado-fragmento">{r.fragmento}</span>
+            </button>
+          ))}
         </section>
       )}
 
@@ -260,6 +330,22 @@ export function Aplicacion(): React.JSX.Element {
                 ? 'en reposo — soporte de solo lectura'
                 : 'preparando'
               : `${String(estado.basePersonal.favoritos)} favoritos · ${String(estado.basePersonal.notas)} notas`}
+          </span>
+        </div>
+        <div className="fila">
+          <span className="nombre">Colecciones ZIM</span>
+          <span className="valor">
+            {estadoZim === null
+              ? 'consultando'
+              : estadoZim.fase === 'activo'
+                ? `${String(estadoZim.colecciones.length)} ${estadoZim.colecciones.length === 1 ? 'colección' : 'colecciones'}, solo en este equipo`
+                : estadoZim.fase === 'sin-binario'
+                  ? 'sin instalar'
+                  : estadoZim.fase === 'sin-colecciones'
+                    ? 'ninguna añadida'
+                    : estadoZim.fase === 'arrancando'
+                      ? 'abriendo…'
+                      : (estadoZim.detalle ?? estadoZim.fase)}
           </span>
         </div>
         <div className="fila">
