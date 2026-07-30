@@ -1,0 +1,45 @@
+# Dependencias y builds
+node_modules/
+dist/
+out/
+build/
+coverage/
+*.tsbuildinfo
+
+# Corpus y contenido pesado — nunca en Git
+# Nota: CONTENT/ y FALLBACK/ (carpetas de la entrega final) no se listan aqui
+# porque en Windows git ignora sin distinguir mayusculas y eso ocultaria
+# content/ (metadata versionable). Los tests de guardia las vigilan.
+CORPUS_ADMIN/
+USER_DATA/
+*.zim
+*.iso
+
+# Bases de datos generadas (los esquemas sí se versionan; los .db no)
+*.db
+*.sqlite
+*.sqlite3
+*.db-journal
+*.db-wal
+*.db-shm
+
+# Claves y secretos — nunca en Git
+*.key
+*.pem
+*.p12
+*.pfx
+minisign.key
+*.minisign-secret
+.env
+.env.*
+
+# Sistema operativo y editores
+Thumbs.db
+Desktop.ini
+.DS_Store
+*.log
+.vscode/
+.idea/
+
+# Excepción: fixtures pequeños y trazables sí se versionan
+!content/fixtures/**

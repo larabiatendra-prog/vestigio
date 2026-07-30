@@ -1,0 +1,19 @@
+# Normalización de finales de línea
+* text=auto eol=lf
+
+# Los BAT de Windows exigen CRLF
+*.bat text eol=crlf
+*.cmd text eol=crlf
+
+# Binarios
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.pdf binary
+*.epub binary
+*.zim binary
+*.woff binary
+*.woff2 binary
+*.ttf binary
