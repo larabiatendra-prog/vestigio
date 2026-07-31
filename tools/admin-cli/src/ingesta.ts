@@ -254,10 +254,14 @@ export function materializarEdicion(
   corpusVersion: string,
 ): void {
   const dirContent = join(dirEdicion, 'CONTENT');
-  if (existsSync(dirContent)) rmSync(dirContent, { recursive: true, force: true });
-  mkdirSync(join(dirContent, 'originals'), { recursive: true });
-  mkdirSync(join(dirContent, 'index'), { recursive: true });
-  mkdirSync(join(dirContent, 'manifest'), { recursive: true });
+  // Solo se reconstruye lo que produce la ingesta. Las colecciones ZIM y
+  // cualquier otra carpeta curada aparte viven tambien en CONTENT y NO se
+  // tocan: borrar CONTENT entero se llevaba por delante los ZIM.
+  for (const carpeta of ['originals', 'index', 'manifest']) {
+    const ruta = join(dirContent, carpeta);
+    if (existsSync(ruta)) rmSync(ruta, { recursive: true, force: true });
+    mkdirSync(ruta, { recursive: true });
+  }
 
   for (const [i, recurso] of resultado.recursos.entries()) {
     const fuente = resultado.fuentes[i];

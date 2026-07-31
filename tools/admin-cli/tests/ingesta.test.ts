@@ -1,5 +1,5 @@
 import { describe, expect, it, beforeEach, afterEach } from 'vitest';
-import { mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { abrirBaseContenido } from '@vestigio/database';
@@ -156,6 +156,23 @@ describe('cadena de ingesta completa', () => {
     writeFileSync(join(edicion, 'CONTENT', 'originals', 'intruso.txt'), 'no estaba');
     const problemas = verificarManifiesto(edicion);
     expect(problemas.some((p) => p.problema === 'no-manifestado')).toBe(true);
+  });
+
+  it('reingerir no destruye las colecciones ZIM ni lo curado aparte', async () => {
+    const primera = await analizarCarpeta(origen, edicion);
+    materializarEdicion(primera, origen, edicion, 'v1');
+
+    // Una coleccion ZIM se anade aparte, no por ingesta.
+    mkdirSync(join(edicion, 'CONTENT', 'zim'), { recursive: true });
+    writeFileSync(join(edicion, 'CONTENT', 'zim', 'coleccion.zim'), 'contenido zim');
+
+    const segunda = await analizarCarpeta(origen, edicion);
+    materializarEdicion(segunda, origen, edicion, 'v2');
+
+    expect(
+      existsSync(join(edicion, 'CONTENT', 'zim', 'coleccion.zim')),
+      'el ZIM debe sobrevivir',
+    ).toBe(true);
   });
 
   it('reingestar la misma carpeta produce los mismos UUID (anclas estables)', async () => {
