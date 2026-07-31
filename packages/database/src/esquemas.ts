@@ -255,6 +255,72 @@ export const MIGRACIONES_PERSONAL: Migracion[] = [
       CREATE INDEX idx_notas_recurso ON notas(recurso_id);
     `,
   },
+  {
+    version: 2,
+    descripcion: 'espacio personal completo: notas editables, papelera, marcadores y progreso rico',
+    sql: `
+      -- Notas reconstruidas: destinos nuevos (ruta y procedimiento, que llegan
+      -- con el bloque 13), contexto citado para relocalizar un anclaje perdido
+      -- y texto normalizado para buscarlas sin tildes. El CHECK no se puede
+      -- ampliar in situ en SQLite, asi que la tabla se rehace copiando.
+      CREATE TABLE notas_nueva (
+        id TEXT PRIMARY KEY,
+        destino_tipo TEXT NOT NULL CHECK (destino_tipo IN ('recurso','segmento','pagina','ruta','procedimiento')),
+        recurso_id TEXT NOT NULL,
+        segmento TEXT,
+        pagina INTEGER,
+        -- Ancla libre para destinos que no son un punto del documento
+        -- (una ruta de aprendizaje, un paso de un procedimiento).
+        ancla TEXT,
+        -- Fragmento citado al crear la nota: si el localizador desaparece
+        -- tras reconstruir la edicion, esto permite decir donde estaba.
+        contexto TEXT,
+        texto TEXT NOT NULL,
+        texto_norm TEXT NOT NULL DEFAULT '',
+        creada TEXT NOT NULL,
+        modificada TEXT
+      );
+
+      INSERT INTO notas_nueva (id, destino_tipo, recurso_id, segmento, pagina, texto, creada, modificada)
+        SELECT id, destino_tipo, recurso_id, segmento, pagina, texto, creada, modificada FROM notas;
+
+      DROP TABLE notas;
+      ALTER TABLE notas_nueva RENAME TO notas;
+      CREATE INDEX idx_notas_recurso ON notas(recurso_id);
+      CREATE INDEX idx_notas_norm ON notas(texto_norm);
+
+      -- Un mismo punto del documento no se marca dos veces; la etiqueta
+      -- opcional es el nombre que le pone el lector.
+      DELETE FROM marcadores WHERE rowid NOT IN (
+        SELECT min(rowid) FROM marcadores GROUP BY recurso_id, localizador
+      );
+      ALTER TABLE marcadores ADD COLUMN etiqueta TEXT;
+      CREATE UNIQUE INDEX idx_marcadores_ancla ON marcadores(recurso_id, localizador);
+
+      -- Progreso: el localizador manda, pero se guarda ademas un fallback
+      -- textual y la pagina para no perder el sitio si el ancla cambia.
+      ALTER TABLE progreso_lectura ADD COLUMN pagina INTEGER;
+      ALTER TABLE progreso_lectura ADD COLUMN fallback_texto TEXT;
+
+      ALTER TABLE colecciones ADD COLUMN descripcion TEXT;
+      ALTER TABLE colecciones ADD COLUMN modificada TEXT;
+      ALTER TABLE coleccion_items ADD COLUMN anadido TEXT;
+
+      ALTER TABLE recientes ADD COLUMN localizador TEXT;
+
+      -- Papelera: borrar algo personal nunca es definitivo en el acto. Lo
+      -- borrado se guarda entero (JSON) hasta que se vacia a proposito.
+      CREATE TABLE papelera (
+        id TEXT PRIMARY KEY,
+        tipo TEXT NOT NULL CHECK (tipo IN ('nota','marcador','favorito','coleccion','coleccion-item')),
+        descripcion TEXT NOT NULL,
+        carga TEXT NOT NULL,
+        borrado TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+      );
+
+      CREATE INDEX idx_papelera_borrado ON papelera(borrado);
+    `,
+  },
 ];
 
 export const VERSION_ESQUEMA_PERSONAL = MIGRACIONES_PERSONAL.length;
