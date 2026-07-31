@@ -37,7 +37,9 @@ Se validan con un corpus de escala representativa, no con cinco archivos.
 - nDCG@10 ≥ 0,80 en exploratorias.
 - Cada intención declara qué cuenta como fallo; ningún promedio oculta un fallo crítico.
 
-El banco de consultas se construye en el bloque de búsqueda (09) con el corpus real; Daniel escribe o aprueba las críticas (≥ 30). Ajuste y evaluación final se separan. _(Aplazado desde Bloque 01 por E2: sin corpus ni buscador, un banco ahora sería ficción.)_
+El banco de consultas exige corpus real y aprobación de Daniel (≥ 30 críticas), así que sigue pendiente: con cuatro documentos de prueba, medir precisión sería teatro. Se hará al construir la biblioteca de verdad (bloques 17–18), junto a la ronda R1 de `UX_TEST_PLAN.md`.
+
+**Medido el 2026-07-31** sobre corpus sintético de escala representativa (2.000 documentos, 10.000 segmentos indexados, `packages/database/tests/rendimiento.test.ts`): búsqueda **p50 9 ms, p95 18 ms**; con filtros aplicados **p95 4 ms**. Presupuesto del plan: p50 < 250 ms, p95 ≤ 1,5 s. La prueba falla automáticamente si se superan.
 
 ## Casos de contrato de normalización española (obligatorios desde el primer índice)
 

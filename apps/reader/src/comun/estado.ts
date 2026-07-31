@@ -83,12 +83,38 @@ export interface EstadoZimUI {
   detalle: string | null;
 }
 
+export type MotivoUI = 'exacta' | 'sin-tilde' | 'alias' | 'aproximada';
+
 export interface CoincidenciaUI {
   recursoId: string;
   titulo: string;
   formato: string;
+  idioma: string;
   localizador: string;
   tituloSeccion: string | null;
   pagina: number | null;
   fragmento: string;
+  motivo: MotivoUI;
+}
+
+export interface FacetaUI {
+  valor: string;
+  etiqueta: string;
+  cuenta: number;
+}
+
+export interface FiltrosUI {
+  formatos?: string[];
+  idiomas?: string[];
+  modulos?: string[];
+}
+
+export interface ResultadoBusquedaUI {
+  coincidencias: CoincidenciaUI[];
+  expansiones: { original: string; anadido: string; tipo: string }[];
+  expansionBloqueadaPor: string | null;
+  sugerencias: { escrito: string; sugerido: string; distancia: number }[];
+  error: { mensaje: string; posicion: number } | null;
+  facetas: { formatos: FacetaUI[]; idiomas: FacetaUI[] };
+  total: number;
 }

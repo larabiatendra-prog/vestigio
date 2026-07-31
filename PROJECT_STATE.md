@@ -1,7 +1,7 @@
 # PROJECT_STATE — Vestigio
 
 **Última actualización:** 2026-07-30
-**Fase:** Bloques 00–06 y 08 ejecutados (con deudas registradas); siguiente: 07 (EPUB), 09 (fusión de búsqueda) o 12 (datos personales en la interfaz)
+**Fase:** Bloques 00–06, 08 y 09 ejecutados (con deudas registradas); siguiente: 10–12 (biblioteca visual y datos personales en pantalla) o 07 (EPUB)
 **Versiones:** app `0.1.0` · corpus `2026-C1-semilla (desarrollo)` · información vigente `—`
 
 > **Vestigio ya es utilizable**: se le echa una carpeta de documentos, se abre y se lee. Buscar → abrir en la sección o página exacta funciona de extremo a extremo.
@@ -14,6 +14,8 @@
 - Verificado en vivo: biblioteca semilla (2 markdown, 1 txt, 1 PDF de 4 páginas) ingerida y abierta por la app; buscar "generador" lleva a la página 3 del PDF, "lejía" a la sección del markdown.
 - **Colecciones ZIM (bloque 08, ADR-0008):** `kiwix-serve` 3.8.1 como proceso separado en `TOOLS/kiwix/`, ligado solo a 127.0.0.1 con puerto dinámico propio, `--blockexternal` y `--attachToProcess`. Health-check que identifica la instancia (no basta que el puerto responda). El main es el único cliente HTTP y valida el **origen exacto**: otro puerto de loopback o `localhost` se rechazan. Búsqueda por la API pública con test contractual sobre respuestas reales. Visor en `WebContentsView` con sesión efímera, sin preload ni IPC, JavaScript desactivado y allowlist del origen propio. Los resultados ZIM aparecen en su propio grupo, sin reordenar los documentos catalogados.
 - Verificado en vivo con un ZIM real de 72 MB: el servidor **no responde desde la IP de red** (solo loopback), la búsqueda devuelve artículos, y al **matar Electron a la fuerza kiwix-serve muere solo** (sin procesos huérfanos).
+- **Búsqueda unificada (bloque 09, `packages/search`):** normalización de doble capa — índice exacto que preserva `ñ`, tildes, `ç` y `l·l`, más capa tolerante que quita solo acentos vocálicos y genera variantes explícitas de grafía (`façana`↔`facana`, `col·legi`↔`collegi`). Parser seguro con modo sencillo (sin sintaxis mágica) y avanzado (frases, prefijos, exclusión) con errores que señalan la posición exacta. Diccionario de sinónimos versionado, visible y desactivable, que **no expande si hay cifras, unidades o negaciones**. Sugerencias de errata sobre el vocabulario real, nunca sustitución silenciosa. Fusión RRF determinista con orden de señal (todas las palabras > título > exacta > sin tildes > alias); cada resultado declara su motivo. Filtros por facetas con OR dentro y AND entre, contados en SQL. Títulos de documentos ahora buscables (no lo eran).
+- **Rendimiento medido** sobre 10.000 segmentos: p50 **9 ms**, p95 **18 ms** (presupuesto: 250 ms / 1,5 s).
 
 ## Estado actual
 

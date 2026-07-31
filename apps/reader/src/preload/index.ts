@@ -3,11 +3,12 @@
 
 import { contextBridge, ipcRenderer } from 'electron';
 import type {
-  CoincidenciaUI,
   EstadoAplicacion,
   EstadoZimUI,
   FichaUI,
+  FiltrosUI,
   RecursoResumenUI,
+  ResultadoBusquedaUI,
   ResultadoZimUI,
 } from '../comun/estado';
 
@@ -16,8 +17,11 @@ const api = {
   listarBiblioteca: (): Promise<RecursoResumenUI[]> => ipcRenderer.invoke('biblioteca:listar'),
   obtenerFicha: (recursoId: string): Promise<FichaUI | null> =>
     ipcRenderer.invoke('biblioteca:ficha', recursoId),
-  buscar: (texto: string): Promise<CoincidenciaUI[]> =>
-    ipcRenderer.invoke('biblioteca:buscar', texto),
+  buscar: (
+    texto: string,
+    opciones?: { avanzado?: boolean; sinonimos?: boolean; filtros?: FiltrosUI },
+  ): Promise<ResultadoBusquedaUI | null> =>
+    ipcRenderer.invoke('biblioteca:buscar', texto, opciones ?? {}),
   estadoZim: (): Promise<EstadoZimUI> => ipcRenderer.invoke('zim:estado'),
   buscarZim: (texto: string): Promise<ResultadoZimUI[]> => ipcRenderer.invoke('zim:buscar', texto),
   abrirZim: (

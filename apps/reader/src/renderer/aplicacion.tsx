@@ -1,15 +1,17 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import type {
-  CoincidenciaUI,
   EstadoAplicacion,
   EstadoZimUI,
   FichaUI,
+  FiltrosUI,
   RecursoResumenUI,
+  ResultadoBusquedaUI,
   ResultadoZimUI,
 } from '../comun/estado';
 import { LectorTexto } from './lector-texto';
 import { LectorPdf } from './lector-pdf';
 import { VisorZim } from './visor-zim';
+import { Buscador } from './buscador';
 
 type Vista =
   | { modo: 'biblioteca' }
@@ -32,26 +34,17 @@ const ETIQUETAS_ESTADO: Record<string, string> = {
   desconocido: 'sin analizar',
 };
 
-/** Resalta los tramos que el buscador marco con [[ ]] sin insertar HTML. */
-function Fragmento({ texto }: { texto: string }): React.JSX.Element {
-  const partes = texto.split(/\[\[|\]\]/);
-  return (
-    <>
-      {partes.map((parte, i) =>
-        i % 2 === 1 ? <mark key={i}>{parte}</mark> : <span key={i}>{parte}</span>,
-      )}
-    </>
-  );
-}
-
 export function Aplicacion(): React.JSX.Element {
   const [estado, setEstado] = useState<EstadoAplicacion | null>(null);
   const [biblioteca, setBiblioteca] = useState<RecursoResumenUI[]>([]);
   const [consulta, setConsulta] = useState('');
-  const [resultados, setResultados] = useState<CoincidenciaUI[] | null>(null);
+  const [resultados, setResultados] = useState<ResultadoBusquedaUI | null>(null);
   const [resultadosZim, setResultadosZim] = useState<ResultadoZimUI[] | null>(null);
   const [estadoZim, setEstadoZim] = useState<EstadoZimUI | null>(null);
   const [buscando, setBuscando] = useState(false);
+  const [filtros, setFiltros] = useState<FiltrosUI>({});
+  const [sinonimos, setSinonimos] = useState(true);
+  const [avanzado, setAvanzado] = useState(false);
   const [vista, setVista] = useState<Vista>({ modo: 'biblioteca' });
   const [ficha, setFicha] = useState<FichaUI | null>(null);
   const [destino, setDestino] = useState<Destino>({ localizador: null, pagina: null });
@@ -112,32 +105,55 @@ export function Aplicacion(): React.JSX.Element {
     };
   }, []);
 
-  const buscar = useCallback((texto: string) => {
-    if (texto.trim().length === 0) {
-      setResultados(null);
-      setResultadosZim(null);
-      return;
-    }
-    setBuscando(true);
-    // Documentos catalogados primero y estables; los ZIM llegan aparte y
-    // nunca reordenan ni bloquean la lista que ya se esta leyendo (§9.3).
-    window.vestigio
-      .buscar(texto)
-      .then(setResultados)
-      .catch(() => setResultados([]))
-      .finally(() => setBuscando(false));
-    window.vestigio
-      .buscarZim(texto)
-      .then(setResultadosZim)
-      .catch(() => setResultadosZim([]));
-  }, []);
+  const buscar = useCallback(
+    (texto: string, opciones: { filtros: FiltrosUI; sinonimos: boolean; avanzado: boolean }) => {
+      if (texto.trim().length === 0) {
+        setResultados(null);
+        setResultadosZim(null);
+        return;
+      }
+      setBuscando(true);
+      // Documentos catalogados primero y estables; los ZIM llegan aparte y
+      // nunca reordenan ni bloquean la lista que ya se esta leyendo (§9.3).
+      window.vestigio
+        .buscar(texto, opciones)
+        .then(setResultados)
+        .catch(() => setResultados(null))
+        .finally(() => setBuscando(false));
+      window.vestigio
+        .buscarZim(texto)
+        .then(setResultadosZim)
+        .catch(() => setResultadosZim([]));
+    },
+    [],
+  );
 
   useEffect(() => {
     const id = setTimeout(() => {
-      buscar(consulta);
+      buscar(consulta, { filtros, sinonimos, avanzado });
     }, 200);
     return () => clearTimeout(id);
-  }, [consulta, buscar]);
+  }, [consulta, filtros, sinonimos, avanzado, buscar]);
+
+  /** OR dentro de la faceta: pulsar un chip lo anade o lo quita. */
+  const alternarFiltro = useCallback((faceta: 'formatos' | 'idiomas', valor: string) => {
+    setFiltros((previos) => {
+      const actuales = previos[faceta] ?? [];
+      const nuevos = actuales.includes(valor)
+        ? actuales.filter((v) => v !== valor)
+        : [...actuales, valor];
+      // Una faceta sin valores desaparece del filtro (no queda un array
+      // vacio que el repositorio tendria que interpretar).
+      const siguiente: FiltrosUI = {};
+      for (const [clave, valores] of Object.entries(previos)) {
+        if (clave !== faceta && valores !== undefined && valores.length > 0) {
+          siguiente[clave as keyof FiltrosUI] = valores;
+        }
+      }
+      if (nuevos.length > 0) siguiente[faceta] = nuevos;
+      return siguiente;
+    });
+  }, []);
 
   const terminos = useMemo(
     () =>
@@ -215,65 +231,47 @@ export function Aplicacion(): React.JSX.Element {
         <input
           type="search"
           className="campo-busqueda"
-          placeholder="buscar en la biblioteca…"
+          placeholder={
+            avanzado ? '"frases exactas", prefijo*, -excluir…' : 'buscar en la biblioteca…'
+          }
           value={consulta}
           onChange={(e) => setConsulta(e.target.value)}
           aria-label="Buscar en la biblioteca"
           autoFocus
         />
+        <div className="opciones-busqueda">
+          <button
+            type="button"
+            className={avanzado ? 'chip activo' : 'chip'}
+            aria-pressed={avanzado}
+            onClick={() => setAvanzado((a) => !a)}
+          >
+            modo avanzado
+          </button>
+          <button
+            type="button"
+            className={sinonimos ? 'chip activo' : 'chip'}
+            aria-pressed={sinonimos}
+            onClick={() => setSinonimos((s) => !s)}
+          >
+            sinónimos
+          </button>
+        </div>
       </section>
 
-      {resultados !== null && (
-        <section className="panel" aria-label="Documentos catalogados" aria-busy={buscando}>
-          <p className="etiqueta">
-            Documentos catalogados ·{' '}
-            {resultados.length === 0
-              ? 'sin coincidencias'
-              : `${String(resultados.length)} ${resultados.length === 1 ? 'coincidencia' : 'coincidencias'}`}
-          </p>
-          {resultados.map((r, i) => (
-            <button
-              type="button"
-              className="resultado"
-              key={`${r.recursoId}-${r.localizador}-${String(i)}`}
-              onClick={() => abrir(r.recursoId, r.localizador, r.pagina)}
-            >
-              <span className="resultado-titulo">{r.titulo}</span>
-              <span className="resultado-donde">
-                {r.tituloSeccion ??
-                  (r.pagina !== null ? `página ${String(r.pagina)}` : r.localizador)}
-              </span>
-              <span className="resultado-fragmento">
-                <Fragmento texto={r.fragmento} />
-              </span>
-            </button>
-          ))}
-          {resultados.length === 0 && (
-            <p className="aviso-sutil">
-              Prueba con otra palabra o revisa la biblioteca completa más abajo. Vestigio no corrige
-              tu búsqueda por su cuenta.
-            </p>
-          )}
-        </section>
-      )}
-
-      {resultadosZim !== null && resultadosZim.length > 0 && (
-        <section className="panel" aria-label="Artículos de colecciones">
-          <p className="etiqueta">Artículos de colecciones · {String(resultadosZim.length)}</p>
-          {resultadosZim.map((r, i) => (
-            <button
-              type="button"
-              className="resultado"
-              key={`${r.libro}-${r.ruta}-${String(i)}`}
-              onClick={() => setVista({ modo: 'zim', articulo: r })}
-            >
-              <span className="resultado-titulo">{r.titulo}</span>
-              <span className="resultado-donde salvia">colección · {r.libro}</span>
-              <span className="resultado-fragmento">{r.fragmento}</span>
-            </button>
-          ))}
-        </section>
-      )}
+      <Buscador
+        resultado={resultados}
+        resultadosZim={resultadosZim}
+        buscando={buscando}
+        filtros={filtros}
+        sinonimosActivos={sinonimos}
+        modoAvanzado={avanzado}
+        alAlternarFiltro={alternarFiltro}
+        alAlternarSinonimos={() => setSinonimos((s) => !s)}
+        alAceptarSugerencia={(t) => setConsulta(t)}
+        alAbrirDocumento={abrir}
+        alAbrirZim={(articulo) => setVista({ modo: 'zim', articulo })}
+      />
 
       <section className="panel" aria-label="Biblioteca">
         <p className="etiqueta">

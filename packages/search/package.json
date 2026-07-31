@@ -1,0 +1,11 @@
+{
+  "name": "@vestigio/search",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Normalizacion espanola, analisis de consultas, sinonimos y fusion de resultados de Vestigio.",
+  "license": "Apache-2.0",
+  "exports": {
+    ".": "./src/index.ts"
+  }
+}

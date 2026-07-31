@@ -102,7 +102,16 @@ function estadoActual(): EstadoServicio {
 
 function manejarConsulta(peticion: Peticion): void {
   const carga = peticion.carga as
-    { operacion?: string; recursoId?: string; texto?: string; limite?: number } | undefined;
+    | {
+        operacion?: string;
+        recursoId?: string;
+        texto?: string;
+        limite?: number;
+        avanzado?: boolean;
+        sinonimos?: boolean;
+        filtros?: { formatos?: string[]; idiomas?: string[]; modulos?: string[] };
+      }
+    | undefined;
 
   // Consultas del catalogo: disponibles aunque no haya base personal.
   switch (carga?.operacion) {
@@ -132,7 +141,13 @@ function manejarConsulta(peticion: Peticion): void {
         id: peticion.id,
         epoch: peticion.epoch,
         ok: true,
-        resultado: contenido?.buscar(carga.texto ?? '', carga.limite) ?? [],
+        resultado:
+          contenido?.buscar(carga.texto ?? '', {
+            ...(carga.avanzado !== undefined ? { avanzado: carga.avanzado } : {}),
+            ...(carga.sinonimos !== undefined ? { sinonimos: carga.sinonimos } : {}),
+            ...(carga.filtros !== undefined ? { filtros: carga.filtros } : {}),
+            ...(carga.limite !== undefined ? { limite: carga.limite } : {}),
+          }) ?? null,
       });
       return;
     case 'ruta-original':

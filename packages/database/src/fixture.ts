@@ -3,6 +3,7 @@
 // Es tambien el nucleo que reutilizara la CLI administrativa (bloque 04).
 
 import { DatabaseSync } from 'node:sqlite';
+import { textoParaIndiceTolerante } from '@vestigio/search';
 import { APPLICATION_ID_CONTENIDO, MIGRACIONES_CONTENIDO } from './esquemas.js';
 import { migrar } from './migrador.js';
 
@@ -85,6 +86,15 @@ export function construirCatalogoFixture(
     const insertarFts = db.prepare(
       'INSERT INTO segmentos_fts (rowid, titulo, cuerpo) VALUES (?, ?, ?)',
     );
+    const insertarFtsTolerante = db.prepare(
+      'INSERT INTO segmentos_tolerante_fts (rowid, titulo, cuerpo) VALUES (?, ?, ?)',
+    );
+    const insertarRecursoFts = db.prepare(
+      'INSERT INTO recursos_fts (rowid, titulo, resumen) VALUES (?, ?, ?)',
+    );
+    const insertarRecursoFtsTolerante = db.prepare(
+      'INSERT INTO recursos_tolerante_fts (rowid, titulo, resumen) VALUES (?, ?, ?)',
+    );
 
     for (const recurso of recursos) {
       const r = insertarRecurso.run(
@@ -103,6 +113,12 @@ export function construirCatalogoFixture(
         recurso.origen?.sha256 ?? null,
       );
       const recursoPk = Number(r.lastInsertRowid);
+      insertarRecursoFts.run(recursoPk, recurso.titulo, recurso.resumen ?? '');
+      insertarRecursoFtsTolerante.run(
+        recursoPk,
+        textoParaIndiceTolerante(recurso.titulo),
+        textoParaIndiceTolerante(recurso.resumen ?? ''),
+      );
       for (const asset of recurso.assets ?? []) {
         const a = insertarAsset.run(
           asset.id,
@@ -131,7 +147,13 @@ export function construirCatalogoFixture(
           segmento.pagina ?? null,
           orden++,
         );
-        insertarFts.run(Number(s.lastInsertRowid), segmento.titulo ?? '', segmento.cuerpo);
+        const rowid = Number(s.lastInsertRowid);
+        insertarFts.run(rowid, segmento.titulo ?? '', segmento.cuerpo);
+        insertarFtsTolerante.run(
+          rowid,
+          textoParaIndiceTolerante(segmento.titulo ?? ''),
+          textoParaIndiceTolerante(segmento.cuerpo),
+        );
       }
     }
 

@@ -22,11 +22,11 @@ import { buscarEnZim, ErrorKiwix } from './kiwix/cliente';
 import { VisorZim, type RecuadroVista } from './kiwix/vista';
 import { VERSION_APP } from '../comun/versiones';
 import type {
-  CoincidenciaUI,
   EstadoAplicacion,
   EstadoZimUI,
   FichaUI,
   RecursoResumenUI,
+  ResultadoBusquedaUI,
   ResultadoZimUI,
 } from '../comun/estado';
 import type { EstadoServicio } from '../comun/mensajes';
@@ -274,10 +274,24 @@ ipcMain.handle('zim:cerrar-visor', (evento): void => {
   visorZim?.ocultar();
 });
 
-ipcMain.handle('biblioteca:buscar', async (evento, texto: unknown): Promise<CoincidenciaUI[]> => {
-  if (typeof texto !== 'string') throw new Error('consulta invalida');
-  return (await consultar(evento, { operacion: 'buscar', texto })) as CoincidenciaUI[];
-});
+ipcMain.handle(
+  'biblioteca:buscar',
+  async (evento, texto: unknown, opciones: unknown): Promise<ResultadoBusquedaUI | null> => {
+    if (typeof texto !== 'string') throw new Error('consulta invalida');
+    const o = (typeof opciones === 'object' && opciones !== null ? opciones : {}) as {
+      avanzado?: boolean;
+      sinonimos?: boolean;
+      filtros?: unknown;
+    };
+    return (await consultar(evento, {
+      operacion: 'buscar',
+      texto,
+      avanzado: o.avanzado === true,
+      sinonimos: o.sinonimos !== false,
+      filtros: o.filtros,
+    })) as ResultadoBusquedaUI | null;
+  },
+);
 
 // --- Ciclo de vida -----------------------------------------------------------
 

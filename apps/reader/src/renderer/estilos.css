@@ -551,3 +551,93 @@ body {
 .resultado-donde.salvia {
   color: var(--salvia-clara);
 }
+
+/* ---- Filtros, chips y motivo de coincidencia -------------------------- */
+
+.opciones-busqueda {
+  display: flex;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.filtros {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 10px 0 16px;
+  border-bottom: 1px solid var(--borde-sutil);
+  margin-bottom: 8px;
+}
+
+.grupo-chips {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.grupo-chips .etiqueta {
+  min-width: 62px;
+}
+
+.chip {
+  background: transparent;
+  border: 1px solid var(--borde-sutil);
+  border-radius: 999px;
+  color: var(--apagado);
+  font-family: var(--voz-sistema);
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  padding: 6px 12px;
+  min-height: 28px;
+  cursor: pointer;
+  transition:
+    border-color 0.25s ease,
+    color 0.25s ease,
+    background-color 0.25s ease;
+}
+
+.chip:hover,
+.chip:focus-visible {
+  border-color: var(--borde-oro);
+  color: var(--crema);
+  outline: none;
+}
+
+.chip.activo {
+  border-color: var(--borde-oro);
+  color: var(--oro-claro);
+  background: rgba(217, 179, 108, 0.08);
+}
+
+.chip-cuenta {
+  color: var(--apagado-oscuro);
+  margin-left: 4px;
+}
+
+.chip.activo .chip-cuenta {
+  color: var(--oro);
+}
+
+.motivo {
+  color: var(--apagado-oscuro);
+  text-transform: none;
+  letter-spacing: 0.08em;
+}
+
+.enlace-sutil {
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid var(--borde-oro);
+  color: var(--oro);
+  font-family: inherit;
+  font-size: inherit;
+  padding: 0;
+  cursor: pointer;
+}
+
+.enlace-sutil:hover,
+.enlace-sutil:focus-visible {
+  color: var(--oro-claro);
+  outline: none;
+}

@@ -93,6 +93,8 @@ export const MIGRACIONES_CONTENIDO: Migracion[] = [
         UNIQUE (recurso_pk, localizador)
       );
 
+      -- Indice EXACTO: remove_diacritics 0 mantiene 'ñ', tildes y grafias
+      -- valencianas. 'cañón' y 'canon' son palabras distintas aqui.
       CREATE VIRTUAL TABLE segmentos_fts USING fts5(
         titulo,
         cuerpo,
@@ -100,6 +102,38 @@ export const MIGRACIONES_CONTENIDO: Migracion[] = [
         content_rowid='pk',
         tokenize='unicode61 remove_diacritics 0'
       );
+
+      -- Indice TOLERANTE: el mismo texto sin acentos vocalicos (la 'ñ'
+      -- sigue intacta) mas las variantes de grafia. Es contenido propio,
+      -- no external content, porque guarda una version transformada.
+      CREATE VIRTUAL TABLE segmentos_tolerante_fts USING fts5(
+        titulo,
+        cuerpo,
+        tokenize='unicode61 remove_diacritics 0'
+      );
+
+      -- Titulos y resumenes de los recursos: el plan §9.1 exige que la
+      -- busqueda encuentre "titulos y subtitulos", no solo el interior de
+      -- los documentos. Se indexan aparte para poder darles mas peso.
+      CREATE VIRTUAL TABLE recursos_fts USING fts5(
+        titulo,
+        resumen,
+        tokenize='unicode61 remove_diacritics 0'
+      );
+
+      CREATE VIRTUAL TABLE recursos_tolerante_fts USING fts5(
+        titulo,
+        resumen,
+        tokenize='unicode61 remove_diacritics 0'
+      );
+
+      -- Vocabulario real del corpus: es la unica fuente de las sugerencias
+      -- de errata. Nunca se propone una palabra que no este indexada.
+      CREATE VIRTUAL TABLE segmentos_vocabulario
+        USING fts5vocab(segmentos_tolerante_fts, 'row');
+
+      CREATE VIRTUAL TABLE recursos_vocabulario
+        USING fts5vocab(recursos_tolerante_fts, 'row');
 
       CREATE TABLE etiquetas (
         pk INTEGER PRIMARY KEY,
