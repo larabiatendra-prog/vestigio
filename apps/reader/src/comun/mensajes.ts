@@ -10,6 +10,10 @@ export const TIPOS_PETICION = [
   'consultar',
   'mutar',
   'estado-mutacion',
+  // Operaciones de mantenimiento del espacio personal (bloque 12): respaldo,
+  // exportacion e importacion. No son consultas (tienen efecto) ni mutaciones
+  // del contrato idempotente (no cambian datos de Daniel uno a uno).
+  'mantenimiento',
   'cerrar',
 ] as const;
 
@@ -54,6 +58,7 @@ export interface EstadoServicio {
     versionEsquema: number;
     favoritos: number;
     notas: number;
+    hayCambios: boolean;
   } | null;
   catalogo: {
     presente: boolean;

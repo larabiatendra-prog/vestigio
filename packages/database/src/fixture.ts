@@ -26,6 +26,9 @@ export interface RecursoCanonico {
   modulos: string[];
   etiquetas?: string[];
   resumen?: string;
+  /** Solo si la ingesta pudo averiguarlo: ausente es un dato, no un hueco. */
+  autor?: string;
+  fechaPublicacion?: string;
   origen?: { url?: string; adquirido: string; sha256: string };
   assets?: AssetCanonico[];
   segmentos?: SegmentoCanonico[];
@@ -65,7 +68,7 @@ export function construirCatalogoFixture(
 
     db.exec('BEGIN');
     const insertarRecurso = db.prepare(
-      'INSERT INTO recursos (id, slug, titulo, idioma, formato, derechos, resumen, estado_texto, detalle_texto, num_paginas, origen_url, origen_adquirido, origen_sha256) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+      'INSERT INTO recursos (id, slug, titulo, idioma, formato, derechos, autor, fecha_publicacion, resumen, estado_texto, detalle_texto, num_paginas, origen_url, origen_adquirido, origen_sha256) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
     );
     const insertarAsset = db.prepare(
       'INSERT INTO assets (id, recurso_pk, formato, ruta_logica, bytes, sha256) VALUES (?, ?, ?, ?, ?, ?)',
@@ -104,6 +107,8 @@ export function construirCatalogoFixture(
         recurso.idioma,
         recurso.formato,
         recurso.derechos,
+        recurso.autor ?? null,
+        recurso.fechaPublicacion ?? null,
         recurso.resumen ?? null,
         recurso.estadoTexto ?? 'desconocido',
         recurso.detalleTexto ?? null,

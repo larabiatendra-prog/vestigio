@@ -162,6 +162,7 @@ export async function analizarCarpeta(
     let estadoTexto = 'sin-texto';
     let detalleTexto: string | null = null;
     let numPaginas: number | null = null;
+    let autor: string | null = null;
 
     if (formato === 'html' || formato === 'markdown' || formato === 'txt') {
       const procesado = procesarTextual(formato, contenido);
@@ -183,6 +184,9 @@ export async function analizarCarpeta(
       detalleTexto = pdf.detalle;
       estadoTexto = mapaEstadoPdf[pdf.diagnostico];
       if (pdf.titulo !== null && pdf.titulo.length > 2) titulo = pdf.titulo;
+      // Los metadatos del PDF son lo unico que sabemos de la autoria: si
+      // vienen, se guardan; si no, la ficha dira que no constan.
+      autor = pdf.autor;
       segmentos = pdf.paginas.map((p) => ({
         // Localizador por pagina: la busqueda abre en la pagina exacta.
         localizador: `p${String(p.pagina)}`,
@@ -211,6 +215,7 @@ export async function analizarCarpeta(
       // plan §8.5): conservacion personal; nunca se publica por defecto.
       derechos: 'personal-preservation',
       modulos: [],
+      ...(autor !== null ? { autor } : {}),
       origen: { adquirido, sha256: sha },
       estadoTexto,
       ...(detalleTexto !== null ? { detalleTexto } : {}),

@@ -79,6 +79,7 @@ interface Props {
   alAlternarSinonimos: () => void;
   alAceptarSugerencia: (texto: string) => void;
   alAbrirDocumento: (recursoId: string, localizador: string | null, pagina: number | null) => void;
+  alAbrirFicha: (recursoId: string) => void;
   alAbrirZim: (articulo: ResultadoZimUI) => void;
 }
 
@@ -93,6 +94,7 @@ export function Buscador({
   alAlternarSinonimos,
   alAceptarSugerencia,
   alAbrirDocumento,
+  alAbrirFicha,
   alAbrirZim,
 }: Props): React.JSX.Element | null {
   const coincidencias: CoincidenciaUI[] = resultado?.coincidencias ?? [];
@@ -177,26 +179,43 @@ export function Buscador({
           </p>
         )}
 
-        {coincidencias.map((r, i) => (
-          <button
-            type="button"
-            className="resultado"
-            key={`${r.recursoId}-${r.localizador}-${String(i)}`}
-            onClick={() => alAbrirDocumento(r.recursoId, r.localizador, r.pagina)}
-          >
-            <span className="resultado-titulo">{r.titulo}</span>
-            <span className="resultado-donde">
-              {r.tituloSeccion ??
-                (r.pagina !== null ? `página ${String(r.pagina)}` : r.localizador)}
-              {r.motivo !== 'exacta' && (
-                <span className="motivo"> · {ETIQUETA_MOTIVO[r.motivo]}</span>
-              )}
-            </span>
-            <span className="resultado-fragmento">
-              <Fragmento texto={r.fragmento} />
-            </span>
-          </button>
-        ))}
+        <ul className="lista-resultados">
+          {coincidencias.map((r, i) => (
+            <li key={`${r.recursoId}-${r.localizador}-${String(i)}`} className="item-resultado">
+              <button
+                type="button"
+                className="resultado"
+                data-ancla={`resultado-${r.recursoId}-${r.localizador}`}
+                onClick={() => {
+                  alAbrirDocumento(r.recursoId, r.localizador, r.pagina);
+                }}
+              >
+                <span className="resultado-titulo">{r.titulo}</span>
+                <span className="resultado-donde">
+                  {r.tituloSeccion ??
+                    (r.pagina !== null ? `página ${String(r.pagina)}` : r.localizador)}
+                  {/* Por que aparecio: nunca es un misterio (plan §9.5). */}
+                  {r.motivo !== 'exacta' && (
+                    <span className="motivo"> · {ETIQUETA_MOTIVO[r.motivo]}</span>
+                  )}
+                </span>
+                <span className="resultado-fragmento">
+                  <Fragmento texto={r.fragmento} />
+                </span>
+              </button>
+              <button
+                type="button"
+                className="accion-secundaria"
+                onClick={() => {
+                  alAbrirFicha(r.recursoId);
+                }}
+              >
+                ver ficha
+                <span className="solo-lectores"> de {r.titulo}</span>
+              </button>
+            </li>
+          ))}
+        </ul>
 
         {coincidencias.length === 0 && (
           <p className="aviso-sutil">

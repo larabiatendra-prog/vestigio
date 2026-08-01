@@ -33,6 +33,9 @@ export interface RecursoResumen {
   detalleTexto: string | null;
   numPaginas: number | null;
   numSegmentos: number;
+  /** Ausente cuando la ingesta no pudo saberlo: honestidad, no relleno (E1). */
+  autor: string | null;
+  fechaPublicacion: string | null;
 }
 
 export interface SegmentoLectura {
@@ -48,10 +51,23 @@ export interface FichaRecurso extends RecursoResumen {
   derechos: string;
   origenSha256: string | null;
   origenAdquirido: string | null;
+  origenUrl: string | null;
+  resumen: string | null;
+  etiquetas: string[];
+  modulos: string[];
   /** Ruta logica del original dentro de CONTENT (para el lector de PDF). */
   rutaOriginal: string | null;
   bytes: number | null;
   segmentos: SegmentoLectura[];
+}
+
+/** Vecino tematico: otro documento que comparte modulo o etiquetas. */
+export interface Relacionado {
+  id: string;
+  titulo: string;
+  formato: string;
+  /** Que tienen en comun, dicho con palabras. */
+  motivo: string;
 }
 
 export interface Coincidencia {
@@ -157,11 +173,58 @@ export class RepositorioContenido {
       .prepare(
         `SELECT r.id, r.slug, r.titulo, r.idioma, r.formato,
                 r.estado_texto AS estadoTexto, r.detalle_texto AS detalleTexto,
-                r.num_paginas AS numPaginas,
+                r.num_paginas AS numPaginas, r.autor,
+                r.fecha_publicacion AS fechaPublicacion,
                 (SELECT count(*) FROM segmentos s WHERE s.recurso_pk = r.pk) AS numSegmentos
          FROM recursos r ORDER BY r.titulo COLLATE NOCASE LIMIT ${String(LIMITE_LISTADO)}`,
       )
       .all() as unknown as RecursoResumen[];
+  }
+
+  /** Titulo y slug de un UUID, para exportaciones y listados personales. */
+  nombrar(recursoId: string): { titulo: string; slug: string } | null {
+    const fila = this.db
+      .prepare('SELECT titulo, slug FROM recursos WHERE id = ?')
+      .get(recursoId) as { titulo: string; slug: string } | undefined;
+    return fila ?? null;
+  }
+
+  /**
+   * Vecinos tematicos de un recurso: mismo modulo o etiquetas compartidas.
+   * Es la "navegacion entre conocimiento" del plan sin inventar relaciones
+   * editoriales que nadie ha declarado (E1): solo lo que la ingesta sabe.
+   */
+  relacionados(recursoId: string, limite = 8): Relacionado[] {
+    const tope = Math.min(Math.max(1, limite), 24);
+    try {
+      return this.db
+        .prepare(
+          `WITH yo AS (SELECT pk FROM recursos WHERE id = ?)
+           SELECT r.id, r.titulo, r.formato,
+                  CASE WHEN comunes.modulos > 0 THEN 'del mismo módulo'
+                       ELSE 'comparte etiquetas' END AS motivo
+           FROM (
+             SELECT rm.recurso_pk AS pk, count(*) AS modulos, 0 AS etiquetas
+             FROM recurso_modulos rm
+             WHERE rm.modulo IN (SELECT modulo FROM recurso_modulos WHERE recurso_pk = (SELECT pk FROM yo))
+             GROUP BY rm.recurso_pk
+             UNION ALL
+             SELECT re.recurso_pk AS pk, 0 AS modulos, count(*) AS etiquetas
+             FROM recurso_etiquetas re
+             WHERE re.etiqueta_pk IN (SELECT etiqueta_pk FROM recurso_etiquetas WHERE recurso_pk = (SELECT pk FROM yo))
+             GROUP BY re.recurso_pk
+           ) AS comunes
+           JOIN recursos r ON r.pk = comunes.pk
+           WHERE r.pk <> (SELECT pk FROM yo)
+           GROUP BY r.pk
+           ORDER BY sum(comunes.modulos + comunes.etiquetas) DESC, r.titulo COLLATE NOCASE
+           LIMIT ${String(tope)}`,
+        )
+        .all(recursoId) as unknown as Relacionado[];
+    } catch {
+      // Un catalogo sin tablas tematicas no rompe la ficha: no hay vecinos.
+      return [];
+    }
   }
 
   ficha(recursoId: string): FichaRecurso | null {
@@ -169,7 +232,9 @@ export class RepositorioContenido {
       .prepare(
         `SELECT r.pk, r.id, r.slug, r.titulo, r.idioma, r.formato, r.derechos,
                 r.estado_texto AS estadoTexto, r.detalle_texto AS detalleTexto,
-                r.num_paginas AS numPaginas,
+                r.num_paginas AS numPaginas, r.autor, r.resumen,
+                r.fecha_publicacion AS fechaPublicacion,
+                r.origen_url AS origenUrl,
                 r.origen_sha256 AS origenSha256, r.origen_adquirido AS origenAdquirido
          FROM recursos r WHERE r.id = ?`,
       )
@@ -177,11 +242,29 @@ export class RepositorioContenido {
       | (RecursoResumen & {
           pk: number;
           derechos: string;
+          resumen: string | null;
+          origenUrl: string | null;
           origenSha256: string | null;
           origenAdquirido: string | null;
         })
       | undefined;
     if (recurso === undefined) return null;
+
+    const etiquetas = (
+      this.db
+        .prepare(
+          `SELECT e.nombre FROM etiquetas e
+           JOIN recurso_etiquetas re ON re.etiqueta_pk = e.pk
+           WHERE re.recurso_pk = ? ORDER BY e.nombre COLLATE NOCASE`,
+        )
+        .all(recurso.pk) as unknown as { nombre: string }[]
+    ).map((f) => f.nombre);
+
+    const modulos = (
+      this.db
+        .prepare('SELECT modulo FROM recurso_modulos WHERE recurso_pk = ? ORDER BY modulo')
+        .all(recurso.pk) as unknown as { modulo: string }[]
+    ).map((f) => f.modulo);
 
     const asset = this.db
       .prepare(
@@ -209,8 +292,14 @@ export class RepositorioContenido {
       detalleTexto: recurso.detalleTexto,
       numPaginas: recurso.numPaginas,
       numSegmentos: segmentos.length,
+      autor: recurso.autor,
+      fechaPublicacion: recurso.fechaPublicacion,
+      resumen: recurso.resumen,
       origenSha256: recurso.origenSha256,
       origenAdquirido: recurso.origenAdquirido,
+      origenUrl: recurso.origenUrl,
+      etiquetas,
+      modulos,
       rutaOriginal: asset?.rutaLogica ?? null,
       bytes: asset?.bytes ?? null,
       segmentos,

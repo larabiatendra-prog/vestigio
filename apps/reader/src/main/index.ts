@@ -2,9 +2,9 @@
 // rutas portables, politicas de seguridad y supervision del servicio de datos.
 // Nada de trabajo pesado sincrono aqui.
 
-import { app, BrowserWindow, ipcMain, session } from 'electron';
+import { app, BrowserWindow, dialog, ipcMain, session } from 'electron';
 import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { join, resolve, sep } from 'node:path';
 import {
   MARCADOR_ENTREGA,
   limpiarTemporal,
@@ -16,17 +16,26 @@ import { registrarEsquemaInterno, manejarProtocoloInterno } from './protocolo-in
 import { aplicarPoliticasDeSesion, blindarVentana } from './seguridad';
 import type { PoliticaRed } from './politica-red';
 import { Registro } from './registro';
-import { SupervisorDatos } from './supervisor-datos';
+import { ErrorServicio, SupervisorDatos } from './supervisor-datos';
+import { randomUUID } from 'node:crypto';
 import { GestorKiwix } from './kiwix/proceso';
 import { buscarEnZim, ErrorKiwix } from './kiwix/cliente';
 import { VisorZim, type RecuadroVista } from './kiwix/vista';
 import { VERSION_APP } from '../comun/versiones';
 import type {
+  EspacioPersonalUI,
   EstadoAplicacion,
   EstadoZimUI,
   FichaUI,
+  InformeCierreUI,
+  InspeccionPaqueteUI,
+  NotaUI,
   RecursoResumenUI,
+  RelacionadoUI,
   ResultadoBusquedaUI,
+  ResultadoExportacionUI,
+  ResultadoImportacionUI,
+  ResultadoMutacionUI,
   ResultadoZimUI,
 } from '../comun/estado';
 import type { EstadoServicio } from '../comun/mensajes';
@@ -151,6 +160,13 @@ function emisorLegitimo(url: string): boolean {
 
 let rendererConectado = false;
 
+/**
+ * Cuando Daniel pide "preparar para copiar", Vestigio suelta bases y Kiwix y
+ * se queda mirando. Este interruptor lo recuerda para que la pantalla lo diga
+ * y el cierre no intente cerrar dos veces lo que ya esta cerrado.
+ */
+let preparadoParaCopiar = false;
+
 ipcMain.handle('estado:obtener', async (evento): Promise<EstadoAplicacion> => {
   if (!emisorLegitimo(evento.senderFrame?.url ?? '')) {
     registro.aviso('ipc estado:obtener rechazado: emisor no autorizado');
@@ -198,6 +214,7 @@ ipcMain.handle('estado:obtener', async (evento): Promise<EstadoAplicacion> => {
     basePersonal,
     catalogo,
     redExterna: 'bloqueada',
+    preparadoParaCopiar,
   };
 });
 
@@ -293,6 +310,318 @@ ipcMain.handle(
   },
 );
 
+ipcMain.handle(
+  'biblioteca:relacionados',
+  async (evento, recursoId: unknown): Promise<RelacionadoUI[]> => {
+    if (typeof recursoId !== 'string') throw new Error('recursoId invalido');
+    return (await consultar(evento, { operacion: 'relacionados', recursoId })) as RelacionadoUI[];
+  },
+);
+
+// --- IPC: espacio personal (bloque 12) --------------------------------------
+
+const ESPACIO_VACIO: EspacioPersonalUI = {
+  disponible: false,
+  motivo: 'el servicio de datos no está disponible ahora mismo',
+  favoritos: [],
+  colecciones: [],
+  notas: [],
+  marcadores: [],
+  progreso: [],
+  recientes: [],
+  papelera: [],
+  ajustes: {},
+};
+
+ipcMain.handle('personal:espacio', async (evento): Promise<EspacioPersonalUI> => {
+  try {
+    return (await consultar(evento, { operacion: 'espacio-personal' })) as EspacioPersonalUI;
+  } catch (error) {
+    // Que el servicio este reiniciando no puede dejar la pantalla en blanco.
+    return { ...ESPACIO_VACIO, motivo: error instanceof Error ? error.message : 'sin respuesta' };
+  }
+});
+
+ipcMain.handle('personal:buscar-notas', async (evento, texto: unknown): Promise<NotaUI[]> => {
+  if (typeof texto !== 'string') throw new Error('texto invalido');
+  return (await consultar(evento, {
+    operacion: 'notas-buscar',
+    texto: texto.slice(0, 200),
+  })) as NotaUI[];
+});
+
+/**
+ * Comprobacion estructural minima en el main. La autoridad sobre el contrato
+ * es el servicio de datos (`esOperacionMutacion`), que valida cada campo con
+ * sus limites: aqui solo se descarta lo que ni siquiera tiene forma de
+ * operacion, para no despertar al servicio con basura.
+ */
+function pareceOperacionPersonal(valor: unknown): valor is { operacion: string } {
+  if (typeof valor !== 'object' || valor === null) return false;
+  const operacion = (valor as Record<string, unknown>)['operacion'];
+  if (typeof operacion !== 'string' || operacion.length === 0 || operacion.length > 40) {
+    return false;
+  }
+  return JSON.stringify(valor).length <= 64 * 1024;
+}
+
+ipcMain.handle(
+  'personal:mutar',
+  async (evento, operacion: unknown): Promise<ResultadoMutacionUI> => {
+    if (!emisorLegitimo(evento.senderFrame?.url ?? '')) {
+      registro.aviso('ipc personal:mutar rechazado: emisor no autorizado');
+      throw new Error('emisor no autorizado');
+    }
+    if (!pareceOperacionPersonal(operacion)) {
+      return { ok: false, estado: 'rechazada', mensaje: 'la operación no tiene forma válida' };
+    }
+    try {
+      const resultado = await supervisor.enviar('mutar', operacion, randomUUID());
+      return {
+        ok: true,
+        estado: resultado === 'ya-aplicada' ? 'ya-aplicada' : 'aplicada',
+        mensaje: null,
+      };
+    } catch (error) {
+      const codigo = error instanceof ErrorServicio ? error.codigo : 'error';
+      if (codigo === 'resultado-desconocido') {
+        // Jamas se reintenta a ciegas: se dice la verdad y Daniel decide.
+        return {
+          ok: false,
+          estado: 'desconocida',
+          mensaje:
+            'no se sabe si el cambio llegó a guardarse. Comprueba antes de repetirlo: Vestigio no lo reintenta por su cuenta.',
+        };
+      }
+      if (codigo === 'solo-lectura') {
+        return {
+          ok: false,
+          estado: 'rechazada',
+          mensaje: 'el soporte es de solo lectura: nada de lo que hagas aquí se guardará',
+        };
+      }
+      return {
+        ok: false,
+        estado: 'rechazada',
+        mensaje: error instanceof Error ? error.message : 'no se pudo guardar',
+      };
+    }
+  },
+);
+
+/** True si la ruta cae dentro de la propia entrega portable. */
+function dentroDelRoot(ruta: string): boolean {
+  const raiz = resolve(rutas.root);
+  const destino = resolve(ruta);
+  return destino === raiz || destino.startsWith(raiz + sep);
+}
+
+function fechaDeFichero(): string {
+  return new Date().toISOString().slice(0, 10);
+}
+
+ipcMain.handle('personal:exportar', async (evento): Promise<ResultadoExportacionUI> => {
+  if (!emisorLegitimo(evento.senderFrame?.url ?? '')) throw new Error('emisor no autorizado');
+  if (ventana === null) throw new Error('sin ventana');
+
+  const eleccion = await dialog.showSaveDialog(ventana, {
+    title: 'Guardar mi espacio personal',
+    defaultPath: join(rutas.root, `vestigio-mi-espacio-${fechaDeFichero()}.zip`),
+    filters: [{ name: 'Paquete de Vestigio', extensions: ['zip'] }],
+    properties: ['createDirectory', 'showOverwriteConfirmation'],
+  });
+  if (eleccion.canceled || eleccion.filePath.length === 0) {
+    return { ok: false, ruta: null, bytes: null, cancelado: true, mensaje: null };
+  }
+
+  try {
+    const resultado = (await supervisor.enviar(
+      'mantenimiento',
+      {
+        accion: 'exportar',
+        destino: eleccion.filePath,
+        dirTemporal: join(rutas.runtime, 'exportacion'),
+        generado: new Date().toISOString(),
+        app: VERSION_APP,
+      },
+      undefined,
+      30000,
+    )) as { ruta: string; bytes: number };
+    return {
+      ok: true,
+      ruta: resultado.ruta,
+      bytes: resultado.bytes,
+      cancelado: false,
+      // Copia honesta: guardarla en el mismo USB no protege de perder el USB.
+      mensaje: dentroDelRoot(resultado.ruta)
+        ? 'La copia ha quedado dentro de la propia carpeta de Vestigio: viaja con ella, así que no te protege si pierdes o se estropea este soporte. Guarda otra en un disco distinto.'
+        : null,
+    };
+  } catch (error) {
+    return {
+      ok: false,
+      ruta: null,
+      bytes: null,
+      cancelado: false,
+      mensaje: error instanceof Error ? error.message : 'no se pudo exportar',
+    };
+  }
+});
+
+/** Ultimo paquete inspeccionado con exito: solo ese se puede adoptar. */
+let paqueteEnStaging: string | null = null;
+
+ipcMain.handle('personal:inspeccionar', async (evento): Promise<InspeccionPaqueteUI> => {
+  if (!emisorLegitimo(evento.senderFrame?.url ?? '')) throw new Error('emisor no autorizado');
+  if (ventana === null) throw new Error('sin ventana');
+  paqueteEnStaging = null;
+
+  const eleccion = await dialog.showOpenDialog(ventana, {
+    title: 'Abrir un paquete del espacio personal',
+    filters: [{ name: 'Paquete de Vestigio', extensions: ['zip'] }],
+    properties: ['openFile'],
+  });
+  const ruta = eleccion.filePaths[0];
+  if (eleccion.canceled || ruta === undefined) {
+    return {
+      ok: false,
+      cancelado: true,
+      ruta: null,
+      problemas: [],
+      avisos: [],
+      generado: null,
+      app: null,
+      corpus: null,
+      resumen: null,
+    };
+  }
+
+  try {
+    const inspeccion = (await supervisor.enviar(
+      'mantenimiento',
+      {
+        accion: 'inspeccionar',
+        rutaZip: ruta,
+        dirStaging: join(rutas.runtime, 'importacion'),
+      },
+      undefined,
+      30000,
+    )) as {
+      ok: boolean;
+      problemas: string[];
+      avisos: string[];
+      rutaBaseStaging: string | null;
+      manifiesto: { generado: string; app: string; corpus: string | null } | null;
+      resumen: InspeccionPaqueteUI['resumen'];
+    };
+    if (inspeccion.ok) paqueteEnStaging = inspeccion.rutaBaseStaging;
+    return {
+      ok: inspeccion.ok,
+      cancelado: false,
+      ruta,
+      problemas: inspeccion.problemas,
+      avisos: inspeccion.avisos,
+      generado: inspeccion.manifiesto?.generado ?? null,
+      app: inspeccion.manifiesto?.app ?? null,
+      corpus: inspeccion.manifiesto?.corpus ?? null,
+      resumen: inspeccion.resumen,
+    };
+  } catch (error) {
+    return {
+      ok: false,
+      cancelado: false,
+      ruta,
+      problemas: [error instanceof Error ? error.message : 'no se pudo leer el paquete'],
+      avisos: [],
+      generado: null,
+      app: null,
+      corpus: null,
+      resumen: null,
+    };
+  }
+});
+
+ipcMain.handle(
+  'personal:adoptar',
+  async (evento, modo: unknown): Promise<ResultadoImportacionUI> => {
+    if (!emisorLegitimo(evento.senderFrame?.url ?? '')) throw new Error('emisor no autorizado');
+    if (paqueteEnStaging === null) {
+      return {
+        ok: false,
+        modo: null,
+        filas: 0,
+        mensaje: 'no hay ningún paquete verificado esperando: ábrelo primero',
+      };
+    }
+    const modoValido = modo === 'reemplazar' ? 'reemplazar' : 'fusionar';
+    try {
+      const resultado = (await supervisor.enviar(
+        'mantenimiento',
+        { accion: 'adoptar', rutaBaseStaging: paqueteEnStaging, modo: modoValido },
+        undefined,
+        30000,
+      )) as { modo: 'fusionar' | 'reemplazar'; filas: number };
+      paqueteEnStaging = null;
+      return { ok: true, modo: resultado.modo, filas: resultado.filas, mensaje: null };
+    } catch (error) {
+      return {
+        ok: false,
+        modo: modoValido,
+        filas: 0,
+        mensaje: error instanceof Error ? error.message : 'no se pudo importar',
+      };
+    }
+  },
+);
+
+// --- IPC: preparar la carpeta para copiarla o expulsarla ---------------------
+
+ipcMain.handle('sistema:preparar-copia', async (evento): Promise<InformeCierreUI> => {
+  if (!emisorLegitimo(evento.senderFrame?.url ?? '')) throw new Error('emisor no autorizado');
+  const problemas: string[] = [];
+  let respaldo: InformeCierreUI['respaldo'] = 'no-aplica';
+  let rutaRespaldo: string | null = null;
+
+  if (rutas.modo === 'lectura-escritura') {
+    try {
+      const r = (await supervisor.enviar(
+        'mantenimiento',
+        { accion: 'respaldar', dirBackups: rutas.backups },
+        undefined,
+        30000,
+      )) as { estado: 'hecho' | 'sin-cambios'; ruta: string | null };
+      respaldo = r.estado;
+      rutaRespaldo = r.ruta;
+    } catch (error) {
+      respaldo = 'fallido';
+      problemas.push(
+        `no se pudo hacer la copia previa: ${error instanceof Error ? error.message : 'error'}`,
+      );
+    }
+  }
+
+  // Cerrar el servicio de datos marca el cierre limpio y suelta los ficheros
+  // SQLite; detener Kiwix suelta el ZIM y el puerto.
+  const [cierre, kiwixParado] = await Promise.allSettled([supervisor.cerrar(), kiwix.detener()]);
+  if (cierre.status === 'rejected') problemas.push('el servicio de datos no cerró del todo');
+  if (kiwixParado.status === 'rejected')
+    problemas.push('las colecciones no se detuvieron del todo');
+
+  visorZim?.ocultar();
+  preparadoParaCopiar = true;
+  registro.info('carpeta preparada para copiar o expulsar');
+
+  return {
+    respaldo,
+    rutaRespaldo,
+    basesCerradas: cierre.status === 'fulfilled',
+    kiwixDetenido: kiwixParado.status === 'fulfilled',
+    problemas,
+    aviso:
+      'Vestigio ya no toca ningún fichero de la carpeta. Esto no es la expulsión segura de Windows: para sacar el USB, úsala igualmente desde la bandeja del sistema.',
+  };
+});
+
 // --- Ciclo de vida -----------------------------------------------------------
 
 void app.whenReady().then(() => {
@@ -334,7 +663,10 @@ app.on('before-quit', (evento) => {
   evento.preventDefault();
   cerrandoOrdenadamente = true;
   visorZim?.ocultar();
-  void Promise.allSettled([supervisor.cerrar(), kiwix.detener()]).then(() => {
+  // Si ya se preparo para copiar, bases y Kiwix estan cerrados: cerrar otra
+  // vez seria inofensivo pero lento, y aqui no queremos hacer esperar.
+  const tareas = preparadoParaCopiar ? [] : [supervisor.cerrar(), kiwix.detener()];
+  void Promise.allSettled(tareas).then(() => {
     limpiarTemporal(rutas);
     registro.info('cierre ordenado completado');
     app.quit();

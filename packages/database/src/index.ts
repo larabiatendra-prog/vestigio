@@ -74,6 +74,7 @@ export {
   type FichaRecurso,
   type SegmentoLectura,
   type Coincidencia,
+  type Relacionado,
 } from './repositorio-contenido.js';
 export {
   construirCatalogoFixture,

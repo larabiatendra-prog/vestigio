@@ -20,9 +20,11 @@ const MAX_ANCHO = 900;
 interface Props {
   ficha: FichaUI;
   paginaDestino: number | null;
+  /** Aviso al shell de por donde va la lectura, para guardar el progreso. */
+  alCambiarPagina?: (pagina: number, total: number) => void;
 }
 
-export function LectorPdf({ ficha, paginaDestino }: Props): React.JSX.Element {
+export function LectorPdf({ ficha, paginaDestino, alCambiarPagina }: Props): React.JSX.Element {
   const lienzo = useRef<HTMLCanvasElement>(null);
   const [documento, setDocumento] = useState<PDFDocumentProxy | null>(null);
   const [pagina, setPagina] = useState(paginaDestino ?? 1);
@@ -60,6 +62,18 @@ export function LectorPdf({ ficha, paginaDestino }: Props): React.JSX.Element {
     setPagina(paginaDestino ?? 1);
   }, [paginaDestino, ficha.id]);
 
+  // El progreso se guarda con calma: pasar diez paginas seguidas no debe
+  // escribir diez veces en disco.
+  useEffect(() => {
+    if (alCambiarPagina === undefined || total <= 0) return;
+    const espera = setTimeout(() => {
+      alCambiarPagina(pagina, total);
+    }, 1200);
+    return () => {
+      clearTimeout(espera);
+    };
+  }, [pagina, total, alCambiarPagina]);
+
   useEffect(() => {
     if (documento === null) return;
     let cancelada = false;
@@ -96,7 +110,7 @@ export function LectorPdf({ ficha, paginaDestino }: Props): React.JSX.Element {
 
   if (fallo !== null) {
     return (
-      <div className="lectura">
+      <div className="cuerpo-lectura">
         <p className="aviso">No se pudo mostrar el PDF: {fallo}</p>
         <p className="nota-pie">El original se conserva intacto en la biblioteca.</p>
       </div>
@@ -104,7 +118,7 @@ export function LectorPdf({ ficha, paginaDestino }: Props): React.JSX.Element {
   }
 
   return (
-    <div className="lectura">
+    <div className="cuerpo-lectura">
       <div className="barra-pdf" role="toolbar" aria-label="Controles del documento">
         <button
           type="button"
@@ -136,6 +150,11 @@ export function LectorPdf({ ficha, paginaDestino }: Props): React.JSX.Element {
       {ficha.segmentos.length > 0 && (
         <details className="vista-textual">
           <summary>Vista textual de esta página (extracción, no el original)</summary>
+          <p className="aviso-sutil">
+            Esto no es el PDF: es el texto que se pudo extraer de él. Sirve para leerlo con lector
+            de pantalla, buscar o copiar, pero puede haber perdido tablas, notas al margen o
+            cualquier cosa que fuera una imagen.
+          </p>
           <p className="cuerpo-textual">
             {ficha.segmentos.find((s) => s.pagina === pagina)?.cuerpo ??
               'Sin texto extraído para esta página.'}

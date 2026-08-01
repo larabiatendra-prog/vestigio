@@ -9,11 +9,15 @@ import {
   abrirBaseContenido,
   cerrarBasePersonal,
   comprobarIntegridad,
+  crearPaquetePersonal,
   ErrorBaseDatos,
+  ErrorPaquete,
   esOperacionMutacion,
+  inspeccionarPaquete,
   RepositorioContenido,
   RepositorioPersonal,
   respaldarBasePersonal,
+  restaurarEspacioPersonal,
   type AperturaPersonal,
   type AperturaContenido,
 } from '@vestigio/database';
@@ -51,7 +55,11 @@ if (modo === 'lectura-escritura' && rutaUserData !== undefined) {
       personal = null;
     }
   }
-  if (personal !== null) repositorio = new RepositorioPersonal(personal.db);
+  if (personal !== null) {
+    repositorio = new RepositorioPersonal(personal.db);
+    // Notas que vienen de un esquema anterior sin texto normalizado.
+    repositorio.prepararIndices();
+  }
 }
 
 if (rutaContent !== undefined) {
@@ -76,8 +84,13 @@ function error(peticion: Peticion, codigo: string, mensaje: string): void {
 }
 
 function estadoActual(): EstadoServicio {
-  let resumen = { favoritos: 0, notas: 0, colecciones: 0 };
-  if (repositorio !== null) resumen = repositorio.resumen();
+  const resumen = repositorio?.resumen() ?? {
+    favoritos: 0,
+    notas: 0,
+    colecciones: 0,
+    marcadores: 0,
+    papelera: 0,
+  };
   return {
     listo: true,
     modo,
@@ -91,6 +104,7 @@ function estadoActual(): EstadoServicio {
             versionEsquema: personal.versionEsquema,
             favoritos: resumen.favoritos,
             notas: resumen.notas,
+            hayCambios: repositorio?.hayCambiosPersonales() ?? false,
           },
     catalogo: {
       presente: catalogo !== null,
@@ -158,6 +172,55 @@ function manejarConsulta(peticion: Peticion): void {
         resultado: contenido?.rutaOriginal(carga.recursoId ?? '') ?? null,
       });
       return;
+    case 'relacionados':
+      responder({
+        id: peticion.id,
+        epoch: peticion.epoch,
+        ok: true,
+        resultado: contenido?.relacionados(carga.recursoId ?? '') ?? [],
+      });
+      return;
+    case 'espacio-personal':
+      // El espacio personal se pide entero: son pocos datos y asi la
+      // pantalla nunca muestra una mitad coherente y otra vieja.
+      responder({
+        id: peticion.id,
+        epoch: peticion.epoch,
+        ok: true,
+        resultado:
+          repositorio === null
+            ? {
+                disponible: false,
+                motivo:
+                  modo === 'solo-lectura'
+                    ? 'el soporte es de solo lectura: en esta sesión no se puede guardar nada'
+                    : 'la base personal no está abierta',
+                favoritos: [],
+                colecciones: [],
+                notas: [],
+                marcadores: [],
+                progreso: [],
+                recientes: [],
+                papelera: [],
+                ajustes: {},
+              }
+            : {
+                disponible: true,
+                motivo: null,
+                favoritos: repositorio.listarFavoritos().map((f) => f.recursoId),
+                colecciones: repositorio.listarColecciones().map((c) => ({
+                  ...c,
+                  recursos: repositorio?.itemsColeccion(c.id).map((i) => i.recursoId) ?? [],
+                })),
+                notas: repositorio.listarNotas(),
+                marcadores: repositorio.listarMarcadores(),
+                progreso: repositorio.listarProgreso(),
+                recientes: repositorio.listarRecientes(),
+                papelera: repositorio.listarPapelera(),
+                ajustes: repositorio.ajustes(),
+              },
+      });
+      return;
     default:
       break;
   }
@@ -183,8 +246,159 @@ function manejarConsulta(peticion: Peticion): void {
         resultado: repositorio.listarNotas(carga.recursoId),
       });
       return;
+    case 'notas-buscar':
+      responder({
+        id: peticion.id,
+        epoch: peticion.epoch,
+        ok: true,
+        resultado: repositorio.buscarNotas(carga.texto ?? ''),
+      });
+      return;
     default:
       error(peticion, 'consulta-desconocida', `operacion no reconocida`);
+  }
+}
+
+/**
+ * Mantenimiento del espacio personal: respaldo, exportacion e importacion.
+ * Vive aqui porque este proceso es el unico que tiene abiertas las bases;
+ * el main solo aporta las rutas que elige Daniel en el dialogo del sistema.
+ */
+function manejarMantenimiento(peticion: Peticion): void {
+  const carga = peticion.carga as
+    | {
+        accion?: string;
+        destino?: string;
+        dirTemporal?: string;
+        dirStaging?: string;
+        dirBackups?: string;
+        rutaZip?: string;
+        rutaBaseStaging?: string;
+        modo?: 'fusionar' | 'reemplazar';
+        generado?: string;
+        app?: string;
+      }
+    | undefined;
+
+  // Inspeccionar no necesita base personal abierta: solo mira un fichero.
+  if (carga?.accion === 'inspeccionar') {
+    if (carga.rutaZip === undefined || carga.dirStaging === undefined) {
+      error(peticion, 'falta-parametro', 'se requieren rutaZip y dirStaging');
+      return;
+    }
+    responder({
+      id: peticion.id,
+      epoch: peticion.epoch,
+      ok: true,
+      resultado: inspeccionarPaquete(carga.rutaZip, carga.dirStaging),
+    });
+    return;
+  }
+
+  if (personal === null || repositorio === null) {
+    error(peticion, 'sin-base-personal', 'no hay base personal en este modo');
+    return;
+  }
+  const db = personal.db;
+
+  switch (carga?.accion) {
+    case 'exportar': {
+      if (carga.destino === undefined || carga.dirTemporal === undefined) {
+        error(peticion, 'falta-parametro', 'se requieren destino y dirTemporal');
+        return;
+      }
+      void crearPaquetePersonal(db, {
+        destino: carga.destino,
+        dirTemporal: carga.dirTemporal,
+        generado: carga.generado ?? new Date().toISOString(),
+        app: carga.app ?? 'desconocida',
+        corpus: corpusVersion,
+        // El titulo de cada documento viene del catalogo: sin el, la
+        // exportacion legible solo tendria UUID.
+        resolver: (recursoId) => contenido?.nombrar(recursoId) ?? null,
+      })
+        .then((resultado) => {
+          responder({
+            id: peticion.id,
+            epoch: peticion.epoch,
+            ok: true,
+            resultado: { ruta: resultado.ruta, bytes: resultado.bytes },
+          });
+        })
+        .catch((excepcion: unknown) => {
+          error(
+            peticion,
+            'exportacion-fallida',
+            excepcion instanceof Error ? excepcion.message : 'no se pudo escribir el paquete',
+          );
+        });
+      return;
+    }
+
+    case 'adoptar': {
+      if (carga.rutaBaseStaging === undefined) {
+        error(peticion, 'falta-parametro', 'se requiere rutaBaseStaging');
+        return;
+      }
+      try {
+        const resultado = restaurarEspacioPersonal(
+          db,
+          carga.rutaBaseStaging,
+          carga.modo === 'reemplazar' ? 'reemplazar' : 'fusionar',
+        );
+        const filas = Object.values(resultado.filasPorTabla).reduce((a, b) => a + b, 0);
+        responder({
+          id: peticion.id,
+          epoch: peticion.epoch,
+          ok: true,
+          resultado: { modo: resultado.modo, filas },
+        });
+      } catch (excepcion) {
+        error(
+          peticion,
+          excepcion instanceof ErrorPaquete ? excepcion.codigo : 'importacion-fallida',
+          excepcion instanceof Error ? excepcion.message : 'no se pudo importar',
+        );
+      }
+      return;
+    }
+
+    case 'respaldar': {
+      const destino = carga.dirBackups ?? rutaBackups;
+      if (destino === undefined) {
+        error(peticion, 'falta-parametro', 'no hay carpeta de copias');
+        return;
+      }
+      if (!repositorio.hayCambiosPersonales()) {
+        responder({
+          id: peticion.id,
+          epoch: peticion.epoch,
+          ok: true,
+          resultado: { estado: 'sin-cambios', ruta: null },
+        });
+        return;
+      }
+      void respaldarBasePersonal(db, destino)
+        .then((r) => {
+          responder({
+            id: peticion.id,
+            epoch: peticion.epoch,
+            ok: true,
+            resultado: { estado: 'hecho', ruta: r.ruta },
+          });
+        })
+        .catch((excepcion: unknown) => {
+          error(
+            peticion,
+            'respaldo-fallido',
+            excepcion instanceof Error ? excepcion.message : 'no se pudo respaldar',
+          );
+        });
+      return;
+    }
+
+    default:
+      error(peticion, 'mantenimiento-desconocido', 'accion de mantenimiento no reconocida');
   }
 }
 
@@ -220,6 +434,9 @@ function manejar(peticion: Peticion): void {
         return;
       case 'mutar':
         manejarMutacion(peticion);
+        return;
+      case 'mantenimiento':
+        manejarMantenimiento(peticion);
         return;
       case 'estado-mutacion': {
         const aplicada = repositorio?.mutacionAplicada(peticion.idMutacion ?? '') ?? false;

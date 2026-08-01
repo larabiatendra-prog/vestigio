@@ -7,10 +7,9 @@ import type { ResultadoZimUI } from '../comun/estado';
 
 interface Props {
   articulo: ResultadoZimUI;
-  alCerrar: () => void;
 }
 
-export function VisorZim({ articulo, alCerrar }: Props): React.JSX.Element {
+export function VisorZim({ articulo }: Props): React.JSX.Element {
   const hueco = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -26,27 +25,16 @@ export function VisorZim({ articulo, alCerrar }: Props): React.JSX.Element {
       });
     };
     colocar();
+    // La vista nativa no se mueve sola: hay que recolocarla cuando la
+    // ventana cambia de tamano o la pagina hace scroll.
     window.addEventListener('resize', colocar);
+    window.addEventListener('scroll', colocar, { passive: true });
     return () => {
       window.removeEventListener('resize', colocar);
+      window.removeEventListener('scroll', colocar);
       void window.vestigio.cerrarVisorZim();
     };
   }, [articulo.ruta]);
 
-  return (
-    <div className="lectura">
-      <header className="cabecera-lectura">
-        <h1 className="titulo-obra">{articulo.titulo}</h1>
-        <p className="lema">colección {articulo.libro} · artículo externo</p>
-        <p className="aviso-sutil">
-          Este artículo procede de una colección ZIM, no del catálogo curado. Se muestra aislado,
-          sin scripts y sin salida a Internet.
-        </p>
-        <button type="button" className="volver" onClick={alCerrar}>
-          ← cerrar artículo
-        </button>
-      </header>
-      <div className="hueco-zim" ref={hueco} aria-label="Artículo de la colección" />
-    </div>
-  );
+  return <div className="hueco-zim" ref={hueco} aria-label="Artículo de la colección" />;
 }

@@ -1,24 +1,28 @@
-import { useEffect, useMemo, useRef } from 'react';
+import { useEffect, useRef } from 'react';
 import type { FichaUI } from '../comun/estado';
 
 // Lector de formatos textuales. El HTML llega ya saneado en construccion
 // (@vestigio/content-pipeline); aqui solo se inserta en un contenedor sin
 // scripts posibles: la CSP del renderer prohibe cualquier ejecucion, y el
 // saneado ya elimino handlers, recursos remotos y esquemas peligrosos.
+//
+// El progreso se calcula por SECCION VISIBLE, no por pixeles: un localizador
+// estable sobrevive a reconstruir la edicion, y el porcentaje de scroll no.
 
 interface Props {
   ficha: FichaUI;
   localizadorDestino: string | null;
-  terminos: string[];
+  /** Aviso al shell de por donde va la lectura (localizador + % del documento). */
+  alLeerSeccion?: (localizador: string, porcentaje: number) => void;
 }
 
-export function LectorTexto({ ficha, localizadorDestino, terminos }: Props): React.JSX.Element {
+export function LectorTexto({
+  ficha,
+  localizadorDestino,
+  alLeerSeccion,
+}: Props): React.JSX.Element {
   const contenedor = useRef<HTMLDivElement>(null);
-
-  const indice = useMemo(
-    () => ficha.segmentos.filter((s) => s.titulo !== null && s.titulo.length > 0),
-    [ficha.segmentos],
-  );
+  const ultimoAvisado = useRef<string | null>(null);
 
   useEffect(() => {
     if (localizadorDestino === null) return;
@@ -28,24 +32,37 @@ export function LectorTexto({ ficha, localizadorDestino, terminos }: Props): Rea
     destino?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }, [localizadorDestino, ficha.id]);
 
-  return (
-    <div className="lectura">
-      {indice.length > 1 && (
-        <nav className="indice" aria-label="Índice del documento">
-          <p className="etiqueta">Índice</p>
-          <ol>
-            {indice.map((s) => (
-              <li
-                key={s.localizador}
-                style={{ marginLeft: `${String(((s.nivel ?? 2) - 2) * 12)}px` }}
-              >
-                <a href={`#${s.localizador}`}>{s.titulo}</a>
-              </li>
-            ))}
-          </ol>
-        </nav>
-      )}
+  // Seccion mas alta que sigue visible: esa es "por donde voy".
+  useEffect(() => {
+    const nodo = contenedor.current;
+    if (nodo === null || alLeerSeccion === undefined) return;
 
+    const observador = new IntersectionObserver(
+      (entradas) => {
+        const visible = entradas
+          .filter((e) => e.isIntersecting)
+          .sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top)[0];
+        if (visible === undefined) return;
+        const localizador = (visible.target as HTMLElement).dataset['localizador'];
+        if (localizador === undefined || localizador === ultimoAvisado.current) return;
+        ultimoAvisado.current = localizador;
+        const posicion = ficha.segmentos.findIndex((s) => s.localizador === localizador);
+        const porcentaje =
+          ficha.segmentos.length > 0 ? ((posicion + 1) / ficha.segmentos.length) * 100 : 0;
+        alLeerSeccion(localizador, porcentaje);
+      },
+      { rootMargin: '-10% 0px -70% 0px' },
+    );
+    for (const seccion of nodo.querySelectorAll('[data-localizador]')) {
+      observador.observe(seccion);
+    }
+    return () => {
+      observador.disconnect();
+    };
+  }, [ficha.id, ficha.segmentos, alLeerSeccion]);
+
+  return (
+    <div className="cuerpo-lectura">
       <article className="cuerpo" ref={contenedor}>
         {ficha.segmentos.map((segmento) => (
           <section
@@ -73,7 +90,13 @@ export function LectorTexto({ ficha, localizadorDestino, terminos }: Props): Rea
           </p>
         )}
       </article>
-      {terminos.length > 0 && <p className="nota-pie">buscado: {terminos.join(' ')}</p>}
+
+      {ficha.formato === 'html' && (
+        <p className="nota-pie">
+          Esta es una versión saneada de la página original: se han eliminado scripts, formularios y
+          cualquier recurso que intentara salir a Internet. El fichero original se conserva intacto.
+        </p>
+      )}
     </div>
   );
 }

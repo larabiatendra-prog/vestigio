@@ -317,3 +317,102 @@ describe('robustez', () => {
     expect(a).toEqual(b);
   });
 });
+
+// --- Ficha y vecinos tematicos (bloque 10, tareas 4 y 5) -------------------
+
+describe('ficha del recurso', () => {
+  it('devuelve los ejes editoriales que la ingesta pudo averiguar', () => {
+    const ficha = repo.ficha(uuid(1));
+    expect(ficha?.titulo).toBe('Desinfección del agua');
+    expect(ficha?.modulos).toEqual(['M03']);
+    expect(ficha?.derechos).toBe('personal-preservation');
+    expect(ficha?.numSegmentos).toBe(2);
+  });
+
+  it('lo que no se sabe llega como ausente, no inventado', () => {
+    const ficha = repo.ficha(uuid(1));
+    // El fixture no declara autoria ni fecha: la ficha lo refleja tal cual
+    // para que la pantalla pueda decir "no consta".
+    expect(ficha?.autor).toBeNull();
+    expect(ficha?.fechaPublicacion).toBeNull();
+    expect(ficha?.etiquetas).toEqual([]);
+  });
+
+  it('un UUID que no existe no devuelve una ficha a medias', () => {
+    expect(repo.ficha('00000000-0000-0000-0000-000000000000')).toBeNull();
+  });
+
+  it('nombrar traduce un UUID a titulo para las exportaciones', () => {
+    expect(repo.nombrar(uuid(2))?.titulo).toBe('El cañón de riego');
+    expect(repo.nombrar('00000000-0000-0000-0000-000000000000')).toBeNull();
+  });
+});
+
+describe('vecinos tematicos', () => {
+  it('un recurso no es vecino de si mismo', () => {
+    const vecinos = repo.relacionados(uuid(1));
+    expect(vecinos.map((v) => v.id)).not.toContain(uuid(1));
+  });
+
+  it('sin nada en comun no se inventan relaciones', () => {
+    // Cada recurso del fixture esta en un modulo distinto y ninguno lleva
+    // etiquetas: no hay vecindad que declarar.
+    expect(repo.relacionados(uuid(1))).toEqual([]);
+  });
+
+  it('un UUID inexistente no rompe la consulta', () => {
+    expect(() => repo.relacionados('00000000-0000-0000-0000-000000000000')).not.toThrow();
+  });
+});
+
+describe('vecinos tematicos cuando si comparten tema', () => {
+  it('agrupa por modulo y por etiquetas, y explica por que', () => {
+    const dirVecinos = mkdtempSync(join(tmpdir(), 'vestigio-vecinos-'));
+    const ruta = join(dirVecinos, 'contenido.sqlite');
+    construirCatalogoFixture(
+      ruta,
+      [
+        {
+          id: uuid(1),
+          slug: 'a',
+          titulo: 'Potabilizar agua',
+          idioma: 'es',
+          formato: 'txt',
+          derechos: 'personal-preservation',
+          modulos: ['M03'],
+          etiquetas: ['agua'],
+          segmentos: [{ localizador: 's1', cuerpo: 'lejía y hervido' }],
+        },
+        {
+          id: uuid(2),
+          slug: 'b',
+          titulo: 'Pozos y sondeos',
+          idioma: 'es',
+          formato: 'txt',
+          derechos: 'personal-preservation',
+          modulos: ['M03'],
+          etiquetas: ['agua'],
+          segmentos: [{ localizador: 's1', cuerpo: 'perforación' }],
+        },
+        {
+          id: uuid(3),
+          slug: 'c',
+          titulo: 'Poesía del XIX',
+          idioma: 'es',
+          formato: 'txt',
+          derechos: 'personal-preservation',
+          modulos: ['M11'],
+          segmentos: [{ localizador: 's1', cuerpo: 'versos' }],
+        },
+      ],
+      { corpus: 'vecinos', informacionVigente: '' },
+    );
+
+    const abierta = abrirBaseContenido(ruta);
+    const vecinos = new RepositorioContenido(abierta.db).relacionados(uuid(1));
+    expect(vecinos.map((v) => v.titulo)).toEqual(['Pozos y sondeos']);
+    expect(vecinos[0]?.motivo).toMatch(/módulo|etiquetas/);
+    abierta.db.close();
+    rmSync(dirVecinos, { recursive: true, force: true });
+  });
+});

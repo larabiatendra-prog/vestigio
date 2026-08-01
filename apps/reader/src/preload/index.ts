@@ -3,12 +3,21 @@
 
 import { contextBridge, ipcRenderer } from 'electron';
 import type {
+  EspacioPersonalUI,
   EstadoAplicacion,
   EstadoZimUI,
   FichaUI,
   FiltrosUI,
+  InformeCierreUI,
+  InspeccionPaqueteUI,
+  NotaUI,
+  OperacionPersonalUI,
   RecursoResumenUI,
+  RelacionadoUI,
   ResultadoBusquedaUI,
+  ResultadoExportacionUI,
+  ResultadoImportacionUI,
+  ResultadoMutacionUI,
   ResultadoZimUI,
 } from '../comun/estado';
 
@@ -17,11 +26,14 @@ const api = {
   listarBiblioteca: (): Promise<RecursoResumenUI[]> => ipcRenderer.invoke('biblioteca:listar'),
   obtenerFicha: (recursoId: string): Promise<FichaUI | null> =>
     ipcRenderer.invoke('biblioteca:ficha', recursoId),
+  relacionados: (recursoId: string): Promise<RelacionadoUI[]> =>
+    ipcRenderer.invoke('biblioteca:relacionados', recursoId),
   buscar: (
     texto: string,
     opciones?: { avanzado?: boolean; sinonimos?: boolean; filtros?: FiltrosUI },
   ): Promise<ResultadoBusquedaUI | null> =>
     ipcRenderer.invoke('biblioteca:buscar', texto, opciones ?? {}),
+
   estadoZim: (): Promise<EstadoZimUI> => ipcRenderer.invoke('zim:estado'),
   buscarZim: (texto: string): Promise<ResultadoZimUI[]> => ipcRenderer.invoke('zim:buscar', texto),
   abrirZim: (
@@ -29,6 +41,20 @@ const api = {
     recuadro: { x: number; y: number; ancho: number; alto: number },
   ): Promise<boolean> => ipcRenderer.invoke('zim:abrir', ruta, recuadro),
   cerrarVisorZim: (): Promise<void> => ipcRenderer.invoke('zim:cerrar-visor'),
+
+  // --- Espacio personal ------------------------------------------------------
+  espacioPersonal: (): Promise<EspacioPersonalUI> => ipcRenderer.invoke('personal:espacio'),
+  buscarNotas: (texto: string): Promise<NotaUI[]> =>
+    ipcRenderer.invoke('personal:buscar-notas', texto),
+  mutarPersonal: (operacion: OperacionPersonalUI): Promise<ResultadoMutacionUI> =>
+    ipcRenderer.invoke('personal:mutar', operacion),
+
+  exportarEspacio: (): Promise<ResultadoExportacionUI> => ipcRenderer.invoke('personal:exportar'),
+  elegirPaquete: (): Promise<InspeccionPaqueteUI> => ipcRenderer.invoke('personal:inspeccionar'),
+  adoptarPaquete: (modo: 'fusionar' | 'reemplazar'): Promise<ResultadoImportacionUI> =>
+    ipcRenderer.invoke('personal:adoptar', modo),
+
+  prepararParaCopiar: (): Promise<InformeCierreUI> => ipcRenderer.invoke('sistema:preparar-copia'),
 };
 
 export type ApiVestigio = typeof api;
