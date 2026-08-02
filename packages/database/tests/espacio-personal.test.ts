@@ -224,14 +224,18 @@ describe('marcadores, progreso y recientes', () => {
     cerrarBasePersonal(db);
   });
 
+  // Cada mutacion es una transaccion con synchronous=EXTRA, o sea un vaciado
+  // de disco de verdad. Con 45 basta para pasarse del tope de 40, y el
+  // margen de tiempo es holgado porque el disco de CI es mucho mas lento
+  // que el de NODO: la lentitud aqui es el diseno, no un defecto.
   it('la lista de recientes no crece sin fin', () => {
     const { db, repo } = abrir();
-    for (let i = 0; i < 60; i++) {
+    for (let i = 0; i < 45; i++) {
       mutar(repo, { operacion: 'reciente-registrar', recursoId: `recurso-${String(i)}` });
     }
     expect(repo.listarRecientes(40).length).toBeLessThanOrEqual(40);
     cerrarBasePersonal(db);
-  });
+  }, 30000);
 
   it('los ajustes de lectura persisten', () => {
     const { db, repo } = abrir();
