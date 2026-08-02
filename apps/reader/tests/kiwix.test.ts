@@ -9,6 +9,7 @@ import {
   VERSION_KIWIX_PROBADA,
 } from '../src/main/kiwix/contrato';
 import { esDelOrigenPropio } from '../src/main/kiwix/cliente';
+import { esRecuadroValido } from '../src/main/kiwix/recuadro';
 
 // Respuesta real capturada de kiwix-serve 3.8.1 (test contractual: si una
 // version futura cambia el formato, esto falla y se bloquea la
@@ -145,5 +146,30 @@ describe('binario de kiwix', () => {
     const rutaEsperada = join('TOOLS', 'kiwix', 'kiwix-serve.exe');
     expect(rutaEsperada).toContain('kiwix-serve.exe');
     expect(existsSync(join('/ruta/que/no/existe', rutaEsperada))).toBe(false);
+  });
+});
+
+// --- Recuadro del visor (defecto corregido tras la sesion de uso) ----------
+
+describe('recuadro de la vista nativa', () => {
+  it('acepta un recuadro normal, incluido el de tamano cero al medir', () => {
+    expect(esRecuadroValido({ x: 10, y: 20, ancho: 800, alto: 600 })).toBe(true);
+    expect(esRecuadroValido({ x: 0, y: 0, ancho: 0, alto: 0 })).toBe(true);
+    // Con scroll hacia abajo, la 'y' del hueco es negativa: es legitimo.
+    expect(esRecuadroValido({ x: 0, y: -320, ancho: 800, alto: 600 })).toBe(true);
+  });
+
+  it('rechaza lo que dejaria la vista perdida fuera de la pantalla', () => {
+    expect(esRecuadroValido({ x: NaN, y: 0, ancho: 10, alto: 10 })).toBe(false);
+    expect(esRecuadroValido({ x: Infinity, y: 0, ancho: 10, alto: 10 })).toBe(false);
+    expect(esRecuadroValido({ x: 0, y: 0, ancho: -5, alto: 10 })).toBe(false);
+    expect(esRecuadroValido({ x: 0, y: 0, ancho: 10, alto: -5 })).toBe(false);
+    expect(esRecuadroValido({ x: 1e9, y: 0, ancho: 10, alto: 10 })).toBe(false);
+  });
+
+  it('rechaza lo que ni siquiera es un recuadro', () => {
+    for (const basura of [null, undefined, 'grande', 42, [], {}, { x: 0, y: 0 }]) {
+      expect(esRecuadroValido(basura)).toBe(false);
+    }
   });
 });

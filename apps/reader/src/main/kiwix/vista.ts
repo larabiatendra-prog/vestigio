@@ -5,22 +5,22 @@
 
 import { BrowserWindow, WebContentsView, session } from 'electron';
 import type { Registro } from '../registro';
+import type { RecuadroVista } from './recuadro';
 
 const PARTICION_EFIMERA = 'vestigio-zim';
 
-export interface RecuadroVista {
-  x: number;
-  y: number;
-  ancho: number;
-  alto: number;
-}
+export type { RecuadroVista };
 
 export class VisorZim {
   private vista: WebContentsView | null = null;
+  /** Ultima URL cargada: recolocar la vista no debe recargar el articulo. */
+  private urlCargada: string | null = null;
 
   constructor(
     private readonly ventana: BrowserWindow,
     private readonly registro: Registro,
+    /** Se avisa de cada enlace que sale fuera para poder explicarlo. */
+    private readonly alBloquearEnlace: (url: string) => void = () => undefined,
   ) {}
 
   /** Muestra un articulo. `url` debe pertenecer al origen propio. */
@@ -80,6 +80,14 @@ export class VisorZim {
           if (new URL(destino).origin !== new URL(origenPropio).origin) {
             evento.preventDefault();
             this.registro.aviso('visor zim: navegacion externa bloqueada');
+            // Bloquear en silencio deja al lector pulsando un enlace que no
+            // hace nada. El plan (bloque 11 t.6) exige explicarlo: se avisa
+            // hacia arriba para que la ventana lo cuente y ofrezca copiarlo.
+            this.alBloquearEnlace(destino);
+          } else {
+            // Navegacion interna del propio ZIM: es legitima y hay que
+            // recordarla, o recolocar la vista devolveria al articulo viejo.
+            this.urlCargada = destino;
           }
         } catch {
           evento.preventDefault();
@@ -88,13 +96,13 @@ export class VisorZim {
       this.ventana.contentView.addChildView(this.vista);
     }
 
-    this.vista.setBounds({
-      x: recuadro.x,
-      y: recuadro.y,
-      width: recuadro.ancho,
-      height: recuadro.alto,
-    });
-    void this.vista.webContents.loadURL(url);
+    this.redimensionar(recuadro);
+    // Solo se carga si de verdad cambia el articulo: mover el recuadro al
+    // hacer scroll no puede tirar la lectura por la borda.
+    if (this.urlCargada !== url) {
+      this.urlCargada = url;
+      void this.vista.webContents.loadURL(url);
+    }
   }
 
   redimensionar(recuadro: RecuadroVista): void {
@@ -111,5 +119,6 @@ export class VisorZim {
     this.ventana.contentView.removeChildView(this.vista);
     this.vista.webContents.close();
     this.vista = null;
+    this.urlCargada = null;
   }
 }

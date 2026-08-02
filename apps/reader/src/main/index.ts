@@ -20,7 +20,8 @@ import { ErrorServicio, SupervisorDatos } from './supervisor-datos';
 import { randomUUID } from 'node:crypto';
 import { GestorKiwix } from './kiwix/proceso';
 import { buscarEnZim, ErrorKiwix } from './kiwix/cliente';
-import { VisorZim, type RecuadroVista } from './kiwix/vista';
+import { VisorZim } from './kiwix/vista';
+import { esRecuadroValido } from './kiwix/recuadro';
 import { VERSION_APP } from '../comun/versiones';
 import type {
   EspacioPersonalUI,
@@ -280,10 +281,26 @@ ipcMain.handle('zim:abrir', (evento, ruta: unknown, recuadro: unknown): boolean 
   if (!emisorLegitimo(evento.senderFrame?.url ?? '')) throw new Error('emisor no autorizado');
   const origen = kiwix.origen();
   if (origen === null || typeof ruta !== 'string' || !ruta.startsWith('/content/')) return false;
-  if (ventana === null) return false;
-  visorZim ??= new VisorZim(ventana, registro);
-  visorZim.mostrar(`${origen}${ruta}`, origen, recuadro as RecuadroVista);
+  if (ventana === null || !esRecuadroValido(recuadro)) return false;
+  visorZim ??= new VisorZim(ventana, registro, (url) => {
+    // La URL viene del contenido del ZIM: es dato ajeno. Se manda como
+    // texto y la ventana la enseña como texto, nunca como enlace vivo.
+    ventana?.webContents.send('zim:enlace-externo', url.slice(0, 500));
+  });
+  visorZim.mostrar(`${origen}${ruta}`, origen, recuadro);
   return true;
+});
+
+/**
+ * Recoloca la vista nativa sin volver a cargar el articulo. La vista de
+ * Kiwix la dibuja el sistema encima de la ventana, asi que hay que moverla
+ * a mano cuando la pagina hace scroll o cambia de tamano; hacerlo con
+ * 'zim:abrir' recargaba el articulo y tiraba la lectura.
+ */
+ipcMain.handle('zim:recolocar', (evento, recuadro: unknown): void => {
+  if (!emisorLegitimo(evento.senderFrame?.url ?? '')) throw new Error('emisor no autorizado');
+  if (!esRecuadroValido(recuadro)) return;
+  visorZim?.redimensionar(recuadro);
 });
 
 ipcMain.handle('zim:cerrar-visor', (evento): void => {

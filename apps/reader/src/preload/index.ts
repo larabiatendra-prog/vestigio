@@ -40,7 +40,23 @@ const api = {
     ruta: string,
     recuadro: { x: number; y: number; ancho: number; alto: number },
   ): Promise<boolean> => ipcRenderer.invoke('zim:abrir', ruta, recuadro),
+  recolocarZim: (recuadro: { x: number; y: number; ancho: number; alto: number }): Promise<void> =>
+    ipcRenderer.invoke('zim:recolocar', recuadro),
   cerrarVisorZim: (): Promise<void> => ipcRenderer.invoke('zim:cerrar-visor'),
+  /**
+   * Avisa de un enlace del articulo que salia a Internet y se ha bloqueado.
+   * Se entrega solo la cadena, nunca el evento de Electron, y devuelve la
+   * funcion para darse de baja.
+   */
+  alBloquearEnlaceZim: (escuchar: (url: string) => void): (() => void) => {
+    const oyente = (_evento: unknown, url: unknown): void => {
+      if (typeof url === 'string') escuchar(url);
+    };
+    ipcRenderer.on('zim:enlace-externo', oyente);
+    return () => {
+      ipcRenderer.removeListener('zim:enlace-externo', oyente);
+    };
+  },
 
   // --- Espacio personal ------------------------------------------------------
   espacioPersonal: (): Promise<EspacioPersonalUI> => ipcRenderer.invoke('personal:espacio'),
