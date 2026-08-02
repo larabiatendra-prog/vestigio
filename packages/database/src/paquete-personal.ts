@@ -17,7 +17,7 @@ import { createHash } from 'node:crypto';
 import { mkdirSync, readFileSync, rmSync, writeFileSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { APPLICATION_ID_PERSONAL, VERSION_ESQUEMA_PERSONAL } from './esquemas.js';
-import { escribirZip, leerZip, ErrorZip, type EntradaZip } from './zip.js';
+import { escribirZip, leerZip, ErrorZip, type EntradaZip } from '@vestigio/zip';
 import {
   aJson,
   aMarkdown,

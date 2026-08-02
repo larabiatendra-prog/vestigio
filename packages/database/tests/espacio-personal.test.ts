@@ -17,7 +17,6 @@ import {
   volcarPersonal,
   aMarkdown,
   csvNotas,
-  ErrorZip,
   MIGRACIONES_PERSONAL,
   RepositorioPersonal,
   VERSION_ESQUEMA_PERSONAL,
@@ -277,75 +276,12 @@ describe('migracion 2 sobre datos de un esquema anterior', () => {
 });
 
 describe('contenedor ZIP', () => {
-  const entradas = [
-    { nombre: 'manifiesto.json', datos: Buffer.from('{"a":1}', 'utf8') },
-    { nombre: 'legible/mi-espacio.md', datos: Buffer.from('# Mi espacio\n'.repeat(50), 'utf8') },
-  ];
-
-  it('ida y vuelta sin perder un byte', () => {
-    const zip = escribirZip(entradas);
-    const leidas = leerZip(zip);
-    expect(leidas.map((e) => e.nombre)).toEqual(entradas.map((e) => e.nombre));
-    expect(leidas[1]?.datos.toString('utf8')).toBe(entradas[1]?.datos.toString('utf8'));
-  });
-
-  it('es determinista: el mismo contenido da los mismos bytes', () => {
-    expect(escribirZip(entradas).equals(escribirZip(entradas))).toBe(true);
-  });
-
-  it('rechaza rutas con truco al escribir y al leer', () => {
-    for (const malo of [
-      '../fuera.txt',
-      '/absoluto.txt',
-      'C:/windows/system32.txt',
-      'carpeta\\otra.txt',
-      './aqui.txt',
-      'a/b/c/d/e/demasiado-hondo.txt',
-    ]) {
-      expect(nombreEntradaValido(malo)).toBe(false);
-      expect(() => escribirZip([{ nombre: malo, datos: Buffer.from('x') }])).toThrowError(ErrorZip);
-    }
-  });
-
-  it('detecta un byte alterado dentro del ZIP', () => {
-    const zip = escribirZip([
-      { nombre: 'datos.txt', datos: Buffer.from('el conocimiento que permanece', 'utf8') },
-    ]);
-    // Los datos guardados sin comprimir empiezan tras la cabecera local.
-    const copia = Buffer.from(zip);
-    const posicion = copia.indexOf(Buffer.from('permanece', 'utf8'));
-    expect(posicion).toBeGreaterThan(0);
-    copia[posicion] = exigir(copia[posicion], 'el byte a alterar') ^ 0x01;
-    expect(() => leerZip(copia)).toThrowError(/alterado|danado|corrupto/i);
-  });
-
-  it('un ZIP truncado no se acepta a medias', () => {
-    const zip = escribirZip(entradas);
-    expect(() => leerZip(zip.subarray(0, zip.length - 10))).toThrowError(ErrorZip);
-  });
-
-  it('una bomba zip choca contra los topes absolutos antes de descomprimirse', () => {
-    const bomba = escribirZip([{ nombre: 'bomba.txt', datos: Buffer.alloc(4 * 1024 * 1024, 0) }]);
-    // Defensa principal: el tope de bytes descomprimidos.
-    expect(() =>
-      leerZip(bomba, {
-        maxEntradas: 10,
-        maxBytesEntrada: 64 * 1024,
-        maxBytesTotal: 64 * 1024,
-        maxRatio: 100000,
-      }),
-    ).toThrowError(/demasiado grande/);
-    // Segunda linea: el ratio de expansion.
-    expect(() =>
-      leerZip(bomba, {
-        maxEntradas: 10,
-        maxBytesEntrada: 1024 * 1024 * 1024,
-        maxBytesTotal: 1024 * 1024 * 1024,
-        maxRatio: 10,
-      }),
-    ).toThrowError(/expande/);
-    // Con los limites reales, un fichero legitimamente comprimible pasa.
-    expect(() => leerZip(bomba)).not.toThrow();
+  // El contenedor y sus defensas se prueban a fondo en packages/zip. Aqui
+  // solo se comprueba que el paquete personal sigue hablando con el.
+  it('se re-exporta y funciona desde el paquete de datos', () => {
+    const entradas = [{ nombre: 'prueba.txt', datos: Buffer.from('hola', 'utf8') }];
+    expect(leerZip(escribirZip(entradas))[0]?.datos.toString('utf8')).toBe('hola');
+    expect(nombreEntradaValido('../fuera.txt')).toBe(false);
   });
 });
 

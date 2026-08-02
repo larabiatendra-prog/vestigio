@@ -1,0 +1,11 @@
+{
+  "name": "@vestigio/zip",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Lector y escritor ZIP propio de Vestigio, endurecido contra ficheros hostiles.",
+  "license": "Apache-2.0",
+  "exports": {
+    ".": "./src/index.ts"
+  }
+}

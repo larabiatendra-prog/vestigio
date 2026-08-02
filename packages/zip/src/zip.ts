@@ -1,16 +1,15 @@
-// ZIP minimo propio (bloque 12, tarea 6): el paquete del espacio personal
-// viaja en un contenedor que cualquiera puede abrir con el explorador de
-// Windows, pero que Vestigio lee con desconfianza.
+// ZIP propio de Vestigio, escrito aqui a proposito.
 //
-// Por que no una libreria: el paquete se importa desde un fichero que puede
-// venir de cualquier sitio. Escribirlo aqui deja las defensas a la vista y
-// bajo prueba: sin rutas absolutas ni '..', sin enlaces, con topes de
-// tamano, de numero de entradas y de ratio de compresion (bomba zip), y con
-// CRC verificado antes de creer un solo byte. Solo se usan 'store' y
-// 'deflate', que es lo que Windows entiende sin ayuda.
+// Lo usan dos cosas con amenazas distintas: el paquete del espacio personal
+// (bloque 12), que Vestigio escribe y vuelve a leer, y los EPUB (bloque 07),
+// que llegan de donde sea. En ambos casos el fichero puede venir de fuera,
+// asi que las defensas tienen que estar a la vista y bajo prueba: sin rutas
+// absolutas ni '..', sin enlaces, con topes de tamano, de numero de entradas
+// y de ratio de compresion (bomba zip), y con CRC verificado antes de creer
+// un solo byte. Solo se aceptan 'store' y 'deflate'.
 //
-// Sin zip64 a proposito: el espacio personal son notas y una base pequena.
-// Un paquete que necesitase zip64 seria una senal de que algo va mal.
+// Sin zip64 a proposito: ni el espacio personal ni un libro lo necesitan.
+// Un fichero que lo pidiese seria una senal de que algo va mal.
 
 import { deflateRawSync, inflateRawSync } from 'node:zlib';
 
@@ -30,12 +29,25 @@ export interface EntradaZip {
   datos: Buffer;
 }
 
+/**
+ * Que nombres de entrada se aceptan.
+ *
+ * - `estricto`: solo lo que Vestigio genera. Se usa al ESCRIBIR y al leer
+ *   sus propios paquetes, donde cualquier nombre raro es de por si un aviso.
+ * - `documento`: nombres de ficheros reales de terceros (un EPUB trae
+ *   "OEBPS/Text/Section 0001.xhtml" o acentos). Mas permisivo en los
+ *   caracteres, igual de duro con todo lo que permite escapar de la carpeta.
+ */
+export type PerfilNombres = 'estricto' | 'documento';
+
 export interface LimitesZip {
   maxEntradas: number;
   maxBytesEntrada: number;
   maxBytesTotal: number;
   /** Tope de expansion por entrada: descomprimido / comprimido. */
   maxRatio: number;
+  maxProfundidad: number;
+  perfilNombres: PerfilNombres;
 }
 
 // La defensa principal contra una bomba zip son los topes ABSOLUTOS: por
@@ -48,6 +60,22 @@ export const LIMITES_POR_DEFECTO: LimitesZip = {
   maxBytesEntrada: 128 * 1024 * 1024,
   maxBytesTotal: 512 * 1024 * 1024,
   maxRatio: 2000,
+  maxProfundidad: 4,
+  perfilNombres: 'estricto',
+};
+
+/**
+ * Limites para EPUB. Un libro ilustrado trae facilmente cientos de ficheros
+ * y carpetas mas hondas que un paquete propio, pero sigue siendo un libro:
+ * si pide mas de esto, no es un libro.
+ */
+export const LIMITES_EPUB: LimitesZip = {
+  maxEntradas: 5000,
+  maxBytesEntrada: 64 * 1024 * 1024,
+  maxBytesTotal: 512 * 1024 * 1024,
+  maxRatio: 500,
+  maxProfundidad: 8,
+  perfilNombres: 'documento',
 };
 
 export class ErrorZip extends Error {
@@ -83,21 +111,68 @@ export function crc32(datos: Buffer): number {
 
 // --- Validacion de nombres ---------------------------------------------------
 
-const NOMBRE_VALIDO = /^[A-Za-z0-9][A-Za-z0-9._-]*(\/[A-Za-z0-9][A-Za-z0-9._-]*)*$/;
-const MAX_PROFUNDIDAD = 4;
+/** Solo lo que Vestigio genera. */
+const NOMBRE_ESTRICTO = /^[A-Za-z0-9][A-Za-z0-9._-]*(\/[A-Za-z0-9][A-Za-z0-9._-]*)*$/;
+
+/**
+ * Caracteres que no pueden aparecer en el nombre de una entrada: los de
+ * control y los que Windows prohibe en un nombre de fichero. Se comparan
+ * por codigo en vez de con una expresion regular para que se vea cual es
+ * cada uno; la barra '/' no esta porque es el separador de carpetas.
+ */
+const CODIGOS_PROHIBIDOS = new Set([
+  0x3c, // <
+  0x3e, // >
+  0x3a, // :
+  0x22, // "
+  0x7c, // |
+  0x3f, // ?
+  0x2a, // *
+  0x5c, // \ (separador de Windows: nunca dentro de un nombre)
+]);
+
+function tieneCaracterProhibido(nombre: string): boolean {
+  for (const caracter of nombre) {
+    const codigo = caracter.codePointAt(0) ?? 0;
+    if (codigo < 0x20 || codigo === 0x7f) return true;
+    if (CODIGOS_PROHIBIDOS.has(codigo)) return true;
+  }
+  return false;
+}
+
+/** Nombres de dispositivo de MS-DOS que siguen vivos en Windows. */
+const RESERVADOS_WINDOWS = /^(con|prn|aux|nul|com[1-9]|lpt[1-9])(\.|$)/i;
 
 /**
  * Un nombre de entrada aceptable: relativo, sin trucos y sin sorpresas de
  * codificacion. Se comprueba al escribir y, sobre todo, al leer: es la
  * defensa contra zip-slip.
+ *
+ * Lo que se prohibe en ambos perfiles es lo que permite salirse de la
+ * carpeta o confundir a Windows al escribir en disco. Lo unico que afloja
+ * el perfil 'documento' es que letras y signos corrientes valgan.
  */
-export function nombreEntradaValido(nombre: string): boolean {
-  if (nombre.length === 0 || nombre.length > 200) return false;
-  if (nombre.includes('\\') || nombre.includes('\0')) return false;
+export function nombreEntradaValido(
+  nombre: string,
+  perfil: PerfilNombres = 'estricto',
+  maxProfundidad = LIMITES_POR_DEFECTO.maxProfundidad,
+): boolean {
+  if (nombre.length === 0 || nombre.length > 250) return false;
+  if (tieneCaracterProhibido(nombre)) return false;
   if (nombre.startsWith('/') || /^[A-Za-z]:/.test(nombre)) return false;
-  if (nombre.split('/').some((parte) => parte === '.' || parte === '..')) return false;
-  if (nombre.split('/').length > MAX_PROFUNDIDAD) return false;
-  return NOMBRE_VALIDO.test(nombre);
+
+  const partes = nombre.split('/');
+  if (partes.length > maxProfundidad) return false;
+  for (const parte of partes) {
+    if (parte.length === 0 || parte === '.' || parte === '..') return false;
+    // Windows se come los puntos y espacios finales al crear el fichero, y
+    // "carpeta.." acabaria siendo "carpeta." y luego otra cosa.
+    if (parte !== parte.replace(/[. ]+$/, '')) return false;
+    if (RESERVADOS_WINDOWS.test(parte)) return false;
+  }
+
+  if (perfil === 'estricto') return NOMBRE_ESTRICTO.test(nombre);
+  return true;
 }
 
 // --- Escritura ---------------------------------------------------------------
@@ -262,10 +337,16 @@ export function leerZip(buffer: Buffer, limites: LimitesZip = LIMITES_POR_DEFECT
     const desplazamiento = buffer.readUInt32LE(cursor + 42);
     const nombre = buffer.toString('utf8', cursor + 46, cursor + 46 + largoNombre);
 
-    if (!nombreEntradaValido(nombre)) {
+    // Entradas de carpeta: los ZIP reales las traen y no llevan datos. Se
+    // ignoran en vez de rechazar el fichero entero por ellas.
+    if (nombre.endsWith('/')) {
+      cursor += 46 + largoNombre + largoExtra + largoComentario;
+      continue;
+    }
+    if (!nombreEntradaValido(nombre, limites.perfilNombres, limites.maxProfundidad)) {
       throw new ErrorZip(
         'nombre-invalido',
-        `el paquete contiene una ruta que no se acepta: ${nombre.slice(0, 80)}`,
+        `el fichero contiene una ruta que no se acepta: ${nombre.slice(0, 80)}`,
       );
     }
     if (tamanoOriginal > limites.maxBytesEntrada) {

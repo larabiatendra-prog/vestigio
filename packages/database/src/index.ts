@@ -32,6 +32,9 @@ export {
   type Reciente,
   type EntradaPapelera,
 } from './repositorio-personal.js';
+// El contenedor ZIP vive en @vestigio/zip: lo comparten el paquete personal
+// y los EPUB. Se re-exporta porque el formato del paquete es parte de la
+// superficie de este modulo.
 export {
   crc32,
   escribirZip,
@@ -41,7 +44,7 @@ export {
   LIMITES_POR_DEFECTO,
   type EntradaZip,
   type LimitesZip,
-} from './zip.js';
+} from '@vestigio/zip';
 export {
   volcarPersonal,
   aJson,

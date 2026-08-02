@@ -126,7 +126,7 @@ export interface ResultadoSaneado {
   };
 }
 
-interface Token {
+export interface Token {
   tipo: 'texto' | 'apertura' | 'cierre' | 'comentario' | 'declaracion';
   nombre?: string;
   atributos?: [string, string][];
@@ -135,7 +135,7 @@ interface Token {
 }
 
 /** Tokenizador HTML tolerante: nunca ejecuta ni evalua nada. */
-function tokenizar(html: string): Token[] {
+export function tokenizar(html: string): Token[] {
   const tokens: Token[] = [];
   let i = 0;
   const n = html.length;
@@ -261,7 +261,7 @@ function normalizarUrlParaInspeccion(url: string): string {
 
 const ESQUEMAS_PELIGROSOS = ['javascript:', 'data:', 'vbscript:', 'file:', 'blob:', 'about:'];
 
-type ClaseUrl = 'segura-relativa' | 'ancla' | 'remota' | 'peligrosa';
+type ClaseUrl = 'segura-relativa' | 'ancla' | 'interna' | 'remota' | 'peligrosa';
 
 export function clasificarUrl(url: string): ClaseUrl {
   const limpia = normalizarUrlParaInspeccion(url);
@@ -270,6 +270,10 @@ export function clasificarUrl(url: string): ClaseUrl {
   for (const esquema of ESQUEMAS_PELIGROSOS) {
     if (limpia.startsWith(esquema)) return 'peligrosa';
   }
+  // El protocolo propio lo sirve el proceso principal, que comprueba que la
+  // ruta cae dentro de CONTENT. Es la unica via por la que un derivado puede
+  // referenciar una imagen extraida de un EPUB.
+  if (limpia.startsWith('vestigio:')) return 'interna';
   if (/^[a-z][a-z0-9+.-]*:/.test(limpia)) {
     // Cualquier otro esquema absoluto (http, https, ftp...) es remoto.
     return 'remota';
