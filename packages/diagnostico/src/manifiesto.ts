@@ -95,6 +95,50 @@ export function verificarManifiesto(dirEdicion: string): ProblemaVerificacion[] 
   return problemas.sort((a, b) => orden[a.problema] - orden[b.problema]);
 }
 
+export interface ResultadoMuestreo {
+  revisados: number;
+  total: number;
+  problemas: ProblemaVerificacion[];
+}
+
+/**
+ * Verifica solo una parte del manifiesto y DICE cuánta.
+ *
+ * Existe porque comprobar miles de ficheros tarda, y una revisión rápida es
+ * mejor que ninguna. Lo que no se puede hacer nunca es presentar el
+ * resultado como si fuera completo: por eso devuelve los números, y quien
+ * lo use queda obligado a enseñarlos.
+ *
+ * La muestra es determinista (los primeros por orden canónico) para que dos
+ * revisiones seguidas miren lo mismo y se puedan comparar.
+ */
+export function muestrearManifiesto(dirEdicion: string, cuantos: number): ResultadoMuestreo {
+  const rutaManifiesto = join(dirEdicion, 'CONTENT', 'manifest', NOMBRE_MANIFIESTO);
+  const manifiesto = JSON.parse(readFileSync(rutaManifiesto, 'utf8')) as Manifiesto;
+  const declarados = Object.keys(manifiesto.archivos).sort();
+  const muestra = declarados.slice(0, Math.max(0, cuantos));
+  const problemas: ProblemaVerificacion[] = [];
+
+  for (const rel of muestra) {
+    const esperado = manifiesto.archivos[rel];
+    if (esperado === undefined) continue;
+    const ruta = join(dirEdicion, ...rel.split('/'));
+    let contenido: Buffer;
+    try {
+      contenido = readFileSync(ruta);
+    } catch {
+      problemas.push({ archivo: rel, problema: 'ausente' });
+      continue;
+    }
+    const sha = createHash('sha256').update(contenido).digest('hex');
+    if (sha !== esperado.sha256 || contenido.length !== esperado.bytes) {
+      problemas.push({ archivo: rel, problema: 'alterado' });
+    }
+  }
+
+  return { revisados: muestra.length, total: declarados.length, problemas };
+}
+
 function statSeguro(ruta: string): number {
   try {
     return statSync(ruta).size;

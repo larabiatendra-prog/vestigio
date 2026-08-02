@@ -304,3 +304,26 @@ export interface InformeCierreUI {
   /** Recordatorio honesto: esto no es la expulsion segura de Windows. */
   aviso: string;
 }
+
+// --- Doctor (bloque 16) ------------------------------------------------------
+
+export interface ComprobacionUI {
+  id: string;
+  titulo: string;
+  estado: 'bien' | 'aviso' | 'mal' | 'no-aplica';
+  detalle: string;
+  remedio: string | null;
+  /** Presente solo si la comprobacion miro una parte, no el todo. */
+  muestreo?: { revisados: number; total: number };
+}
+
+export interface InformeDoctorUI {
+  generado: string;
+  nivel: 'arranque' | 'rapido' | 'completo';
+  comprobaciones: ComprobacionUI[];
+  resumen: { bien: number; avisos: number; problemas: number };
+  veredicto: 'operativo' | 'operativo-con-avisos' | 'degradado' | 'necesita-otra-copia';
+  titular: string;
+  /** Donde ha quedado escrito el informe, si se pudo escribir. */
+  rutaInforme: string | null;
+}

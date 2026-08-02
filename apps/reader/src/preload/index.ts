@@ -9,6 +9,7 @@ import type {
   FichaUI,
   FiltrosUI,
   InformeCierreUI,
+  InformeDoctorUI,
   InspeccionPaqueteUI,
   NotaUI,
   OperacionPersonalUI,
@@ -71,6 +72,8 @@ const api = {
     ipcRenderer.invoke('personal:adoptar', modo),
 
   prepararParaCopiar: (): Promise<InformeCierreUI> => ipcRenderer.invoke('sistema:preparar-copia'),
+  pasarDoctor: (completo: boolean): Promise<InformeDoctorUI> =>
+    ipcRenderer.invoke('sistema:doctor', completo),
 };
 
 export type ApiVestigio = typeof api;

@@ -4,7 +4,7 @@ import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { abrirBaseContenido } from '@vestigio/database';
 import { analizarCarpeta, materializarEdicion } from '../src/ingesta.js';
-import { generarManifiesto, escribirManifiesto, verificarManifiesto } from '../src/manifiesto.js';
+import { generarManifiesto, escribirManifiesto, verificarManifiesto } from '@vestigio/diagnostico';
 import { detectarFormato, detectarIdioma, uuidDesdeSha256, sha256De } from '../src/metadatos.js';
 
 let dir: string;

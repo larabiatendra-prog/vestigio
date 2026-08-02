@@ -1381,6 +1381,87 @@ body {
   color: var(--salvia-clara);
 }
 
+/* ---- Informe del Doctor ---------------------------------------------- */
+
+.informe-doctor {
+  margin-top: 18px;
+}
+
+.lista-comprobaciones {
+  list-style: none;
+  margin-top: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.comprobacion {
+  display: grid;
+  grid-template-columns: 96px minmax(0, 1fr);
+  gap: 14px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--borde-sutil);
+}
+
+.comprobacion:last-child {
+  border-bottom: none;
+}
+
+.marca-estado {
+  font-family: var(--voz-sistema);
+  font-size: 10px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  padding-top: 3px;
+}
+
+.comprobacion.bien .marca-estado {
+  color: var(--salvia);
+}
+.comprobacion.aviso .marca-estado {
+  color: var(--oro);
+}
+.comprobacion.mal .marca-estado {
+  color: var(--ascua);
+}
+.comprobacion.no-aplica .marca-estado {
+  color: var(--apagado-oscuro);
+}
+
+.comprobacion-cuerpo {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 15px;
+  line-height: 1.5;
+}
+
+.comprobacion-detalle {
+  color: var(--apagado);
+}
+
+.comprobacion-muestreo,
+.comprobacion-remedio {
+  font-family: var(--voz-sistema);
+  font-size: 11px;
+  line-height: 1.6;
+}
+
+.comprobacion-muestreo {
+  color: var(--oro);
+}
+
+.comprobacion-remedio {
+  color: var(--salvia);
+}
+
+@media (max-width: 720px) {
+  .comprobacion {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 4px;
+  }
+}
+
 /* ---- Foco, movimiento y contraste forzado ---------------------------- */
 
 *:focus-visible {

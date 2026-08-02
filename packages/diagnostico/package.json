@@ -1,0 +1,11 @@
+{
+  "name": "@vestigio/diagnostico",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Manifiesto de integridad y Doctor de Vestigio: diagnostico y recuperacion sin Internet.",
+  "license": "Apache-2.0",
+  "exports": {
+    ".": "./src/index.ts"
+  }
+}

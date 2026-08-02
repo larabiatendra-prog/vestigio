@@ -3,7 +3,7 @@
 // solo ven contratos tipados; el SQL vive en @vestigio/database.
 
 import { join } from 'node:path';
-import { mkdirSync } from 'node:fs';
+import { mkdirSync, writeFileSync } from 'node:fs';
 import {
   abrirBasePersonal,
   abrirBaseContenido,
@@ -21,6 +21,7 @@ import {
   type AperturaPersonal,
   type AperturaContenido,
 } from '@vestigio/database';
+import { diagnosticar, informeEnTexto, type NivelDoctor } from '@vestigio/diagnostico';
 import { esPeticion, type EstadoServicio, type Peticion, type Respuesta } from '../comun/mensajes';
 
 const epochPropio = Number(process.env['VESTIGIO_EPOCH'] ?? '0');
@@ -285,8 +286,39 @@ function manejarMantenimiento(peticion: Peticion): void {
         modo?: 'fusionar' | 'reemplazar';
         generado?: string;
         app?: string;
+        nivel?: NivelDoctor;
+        root?: string;
+        dirLogs?: string;
       }
     | undefined;
+
+  // El Doctor corre aunque no haya base personal: precisamente sirve para
+  // los casos en que algo no ha podido abrirse.
+  if (carga?.accion === 'doctor') {
+    if (carga.root === undefined) {
+      error(peticion, 'falta-parametro', 'se requiere root');
+      return;
+    }
+    const informe = diagnosticar({ root: carga.root, nivel: carga.nivel ?? 'rapido' });
+    let rutaInforme: string | null = null;
+    if (carga.dirLogs !== undefined) {
+      try {
+        mkdirSync(carga.dirLogs, { recursive: true });
+        const destino = join(carga.dirLogs, 'doctor.txt');
+        writeFileSync(destino, informeEnTexto(informe), 'utf8');
+        rutaInforme = destino;
+      } catch {
+        // Soporte de solo lectura: el informe se enseña igualmente.
+      }
+    }
+    responder({
+      id: peticion.id,
+      epoch: peticion.epoch,
+      ok: true,
+      resultado: { ...informe, rutaInforme },
+    });
+    return;
+  }
 
   // Inspeccionar no necesita base personal abierta: solo mira un fichero.
   if (carga?.accion === 'inspeccionar') {

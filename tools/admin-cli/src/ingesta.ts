@@ -38,6 +38,7 @@ import {
   uuidDesdeSha256,
 } from './metadatos.js';
 import { extraerPdf, VERSION_PDFJS, type DiagnosticoPdf } from './pdf.js';
+import { generarFallback, type RecursoFallback } from '@vestigio/diagnostico';
 
 export const HERRAMIENTA = 'vestigio-admin@0.1.0';
 const LIMITE_BYTES_ARCHIVO = 512 * 1024 * 1024; // 512 MB por archivo
@@ -407,6 +408,23 @@ export function materializarEdicion(
       informacionVigente: '',
     },
   );
+
+  // Salida de emergencia: el catalogo legible sin la aplicacion. Se genera
+  // ahora, al construir la edicion, porque si la app se rompe ya es tarde.
+  const paraFallback: RecursoFallback[] = resultado.recursos.map((recurso) => ({
+    titulo: recurso.titulo,
+    autor: recurso.autor ?? null,
+    formato: recurso.formato,
+    idioma: recurso.idioma,
+    rutaOriginal: recurso.assets?.[0]?.rutaLogica ?? null,
+    resumen: recurso.segmentos?.[0]?.cuerpo.slice(0, 160).trim() ?? null,
+  }));
+  generarFallback({
+    root: dirEdicion,
+    corpus: corpusVersion,
+    generado: new Date().toISOString(),
+    recursos: paraFallback,
+  });
 
   writeFileSync(
     join(dirEdicion, 'content-sources.lock.json'),

@@ -29,6 +29,7 @@ import type {
   EstadoZimUI,
   FichaUI,
   InformeCierreUI,
+  InformeDoctorUI,
   InspeccionPaqueteUI,
   NotaUI,
   RecursoResumenUI,
@@ -596,6 +597,25 @@ ipcMain.handle(
     }
   },
 );
+
+// --- IPC: el Doctor desde dentro de la aplicacion ---------------------------
+
+ipcMain.handle('sistema:doctor', async (evento, completo: unknown): Promise<InformeDoctorUI> => {
+  if (!emisorLegitimo(evento.senderFrame?.url ?? '')) throw new Error('emisor no autorizado');
+  // El diagnostico completo recorre todas las huellas: puede tardar, asi que
+  // se le da mucho mas margen que a una consulta corriente.
+  return (await supervisor.enviar(
+    'mantenimiento',
+    {
+      accion: 'doctor',
+      root: rutas.root,
+      dirLogs: rutas.logs,
+      nivel: completo === true ? 'completo' : 'rapido',
+    },
+    undefined,
+    completo === true ? 300000 : 60000,
+  )) as InformeDoctorUI;
+});
 
 // --- IPC: preparar la carpeta para copiarla o expulsarla ---------------------
 

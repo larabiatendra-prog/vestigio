@@ -5,7 +5,13 @@
 // tarea 9), que suelta bases y colecciones antes de que Daniel saque el USB.
 
 import { useState } from 'react';
-import type { EstadoAplicacion, EstadoZimUI, InformeCierreUI } from '../comun/estado';
+import type {
+  ComprobacionUI,
+  EstadoAplicacion,
+  EstadoZimUI,
+  InformeCierreUI,
+  InformeDoctorUI,
+} from '../comun/estado';
 
 interface Props {
   estado: EstadoAplicacion | null;
@@ -30,9 +36,37 @@ function textoZim(estadoZim: EstadoZimUI | null): string {
   }
 }
 
+const ETIQUETA_ESTADO: Record<ComprobacionUI['estado'], string> = {
+  bien: 'correcto',
+  aviso: 'aviso',
+  mal: 'problema',
+  'no-aplica': 'no aplica',
+};
+
 export function VistaSistema({ estado, estadoZim }: Props): React.JSX.Element {
   const [informe, setInforme] = useState<InformeCierreUI | null>(null);
   const [preparando, setPreparando] = useState(false);
+  const [doctor, setDoctor] = useState<InformeDoctorUI | null>(null);
+  const [revisando, setRevisando] = useState<false | 'rapido' | 'completo'>(false);
+  const [falloDoctor, setFalloDoctor] = useState<string | null>(null);
+
+  const pasarDoctor = (completo: boolean): void => {
+    setRevisando(completo ? 'completo' : 'rapido');
+    setFalloDoctor(null);
+    window.vestigio
+      .pasarDoctor(completo)
+      .then(setDoctor)
+      .catch((error: unknown) => {
+        setFalloDoctor(
+          error instanceof Error
+            ? `La revisión no pudo terminar: ${error.message}`
+            : 'La revisión no pudo terminar.',
+        );
+      })
+      .finally(() => {
+        setRevisando(false);
+      });
+  };
 
   const preparado = estado?.preparadoParaCopiar === true;
   const activo = estado?.servicioDatos.fase === 'activo';
@@ -118,6 +152,75 @@ export function VistaSistema({ estado, estadoZim }: Props): React.JSX.Element {
           </span>
         </div>
         <p className="nota-pie">{estado?.rootPortable ?? ''}</p>
+      </section>
+
+      <section className="panel" aria-label="Revisión de la entrega">
+        <p className="etiqueta">¿Está todo en su sitio?</p>
+        <p className="aviso-sutil">
+          El Doctor mira la entrega entera y te dice qué encuentra: si los documentos siguen
+          intactos, si las bases están sanas y si hay copias de tu espacio. No necesita conexión.
+        </p>
+        <div className="acciones-ficha">
+          <button
+            type="button"
+            className="boton-principal"
+            disabled={revisando !== false}
+            onClick={() => {
+              pasarDoctor(false);
+            }}
+          >
+            {revisando === 'rapido' ? 'Revisando…' : 'Revisión rápida'}
+          </button>
+          <button
+            type="button"
+            className="boton-secundario"
+            disabled={revisando !== false}
+            onClick={() => {
+              pasarDoctor(true);
+            }}
+          >
+            {revisando === 'completo' ? 'Revisando a fondo…' : 'Revisión a fondo'}
+          </button>
+        </div>
+
+        {falloDoctor !== null && (
+          <p className="aviso" role="status">
+            {falloDoctor}
+          </p>
+        )}
+
+        {doctor !== null && (
+          <div className="informe-doctor">
+            <p className={doctor.veredicto === 'operativo' ? 'aviso-sutil' : 'aviso'} role="status">
+              {doctor.titular}
+            </p>
+            <p className="aviso-sutil">
+              {String(doctor.resumen.bien)} correctas · {String(doctor.resumen.avisos)} avisos ·{' '}
+              {String(doctor.resumen.problemas)} problemas
+              {doctor.rutaInforme !== null ? ' · informe guardado en LOGS/doctor.txt' : ''}
+            </p>
+            <ul className="lista-comprobaciones">
+              {doctor.comprobaciones.map((c) => (
+                <li key={c.id} className={`comprobacion ${c.estado}`}>
+                  <span className="marca-estado">{ETIQUETA_ESTADO[c.estado]}</span>
+                  <span className="comprobacion-cuerpo">
+                    <strong>{c.titulo}</strong>
+                    <span className="comprobacion-detalle">{c.detalle}</span>
+                    {c.muestreo !== undefined && (
+                      <span className="comprobacion-muestreo">
+                        Revisados {c.muestreo.revisados} de {c.muestreo.total}: esto es una muestra,
+                        no una garantía sobre el resto.
+                      </span>
+                    )}
+                    {c.remedio !== null && (
+                      <span className="comprobacion-remedio">{c.remedio}</span>
+                    )}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
       </section>
 
       <section className="panel" aria-label="Preparar para copiar o expulsar">
