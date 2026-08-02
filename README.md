@@ -6,6 +6,18 @@ Vestigio es una biblioteca técnica y práctica completamente offline para Windo
 
 Es un producto personal, de un solo usuario, del ecosistema NODO.
 
+## Cómo abrirlo
+
+Doble clic en **`Vestigio.bat`**. Nada más.
+
+Ese lanzador arranca con el Electron firmado que viene con el proyecto. Es un rodeo deliberado: el ejecutable empaquetado lleva grabados los fusibles de seguridad, y grabarlos invalida la firma digital de Electron, así que el Control de aplicaciones de Windows 11 lo bloquea. Mientras la firma siga sin resolverse ([docs/TOOLCHAIN.md](docs/TOOLCHAIN.md)), este es el camino que funciona — y tiene una ventaja: siempre abre la versión actual del código, nunca un paquete viejo sin reconstruir.
+
+Para añadir documentos a la biblioteca:
+
+```
+npm run -w @vestigio/admin-cli admin -- ingerir "<carpeta>" --salida "apps\reader\.portable-dev"
+```
+
 ## Documentos de gobierno
 
 - [PLAN_MAESTRO.md](PLAN_MAESTRO.md) — la especificación completa del producto (versión 2.0).

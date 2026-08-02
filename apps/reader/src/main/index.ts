@@ -46,6 +46,12 @@ declare const VENTANA_PRINCIPAL_PRELOAD_WEBPACK_ENTRY: string;
 
 const enDesarrollo = !app.isPackaged;
 
+// Las herramientas de desarrollo se abren por defecto en modo desarrollo,
+// pero el lanzador de doble clic usa ese mismo modo para arrancar con el
+// Electron firmado, y ahi estorban. Que no esten empaquetado no significa
+// que Daniel quiera verlas.
+const abrirHerramientas = enDesarrollo && process.env['VESTIGIO_SIN_DEVTOOLS'] !== '1';
+
 // --- Root portable, resuelto antes de app.ready (plan §7) -------------------
 
 function leerArgumento(nombre: string): string | undefined {
@@ -140,7 +146,7 @@ function crearVentana(): void {
     ventana = null;
   });
   void ventana.loadURL(VENTANA_PRINCIPAL_WEBPACK_ENTRY);
-  if (enDesarrollo) ventana.webContents.openDevTools({ mode: 'detach' });
+  if (abrirHerramientas) ventana.webContents.openDevTools({ mode: 'detach' });
 }
 
 app.on('second-instance', () => {
