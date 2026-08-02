@@ -35,7 +35,7 @@ const config: ForgeConfig = {
       },
       // CSP de desarrollo; en produccion la fija ventana-principal.ts.
       devContentSecurityPolicy:
-        "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self' ws:",
+        "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: vestigio:; connect-src 'self' ws:",
     }),
     new FusesPlugin({
       version: FuseVersion.V1,

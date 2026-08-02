@@ -651,17 +651,22 @@ void app.whenReady().then(() => {
   aplicarPoliticasDeSesion(session.defaultSession, politicaRed, registro);
   // El protocolo interno resuelve UUID -> ruta preguntando al servicio de
   // datos: el renderer nunca entrega rutas, solo identificadores.
-  manejarProtocoloInterno(rutas.content, async (recursoId) => {
+  const resolverEnServicio = async (
+    operacion: string,
+    recursoId: string,
+  ): Promise<string | null> => {
     try {
-      const ruta = await supervisor.enviar('consultar', {
-        operacion: 'ruta-original',
-        recursoId,
-      });
+      const ruta = await supervisor.enviar('consultar', { operacion, recursoId });
       return typeof ruta === 'string' ? ruta : null;
     } catch {
       return null;
     }
-  });
+  };
+  manejarProtocoloInterno(
+    rutas.content,
+    (recursoId) => resolverEnServicio('ruta-original', recursoId),
+    (assetId) => resolverEnServicio('ruta-asset', assetId),
+  );
   supervisor.iniciar();
   crearVentana();
   registro.info(`vestigio ${VERSION_APP} arrancado en modo ${rutas.modo}`);

@@ -172,6 +172,14 @@ function manejarConsulta(peticion: Peticion): void {
         resultado: contenido?.rutaOriginal(carga.recursoId ?? '') ?? null,
       });
       return;
+    case 'ruta-asset':
+      responder({
+        id: peticion.id,
+        epoch: peticion.epoch,
+        ok: true,
+        resultado: contenido?.rutaAsset(carga.recursoId ?? '') ?? null,
+      });
+      return;
     case 'relacionados':
       responder({
         id: peticion.id,

@@ -19,6 +19,7 @@ import { usePreferencias, LIMITES_PREFERENCIAS } from './preferencias';
 import { buscarEnSegmentos, recolocar, type CoincidenciaInterna } from './busqueda-interna';
 import { LectorTexto } from './lector-texto';
 import { LectorPdf } from './lector-pdf';
+import { LectorImagen } from './lector-imagen';
 import { VisorZim } from './visor-zim';
 import {
   DETALLE_ESTADO_TEXTO,
@@ -714,7 +715,9 @@ export function Lector({
           </nav>
         )}
 
-        {ficha.formato === 'pdf' ? (
+        {ficha.formato === 'imagen' ? (
+          <LectorImagen ficha={ficha} />
+        ) : ficha.formato === 'pdf' ? (
           <LectorPdf
             ficha={ficha}
             paginaDestino={coincidenciaActual?.pagina ?? paginaDestino}

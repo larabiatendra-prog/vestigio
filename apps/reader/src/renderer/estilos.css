@@ -1312,6 +1312,22 @@ body {
   background: var(--crema);
 }
 
+.lienzo-imagen {
+  overflow: auto;
+  padding: 12px 0;
+}
+
+.lienzo-imagen img {
+  display: block;
+  border: 1px solid var(--borde-sutil);
+  background: rgba(231, 223, 205, 0.04);
+}
+
+.lienzo-imagen.ajustada img {
+  max-width: 100%;
+  height: auto;
+}
+
 .vista-textual summary {
   font-family: var(--voz-sistema);
   font-size: 10px;

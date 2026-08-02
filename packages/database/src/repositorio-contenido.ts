@@ -306,6 +306,18 @@ export class RepositorioContenido {
     };
   }
 
+  /**
+   * Ruta logica de un asset por su identificador. Sirve para los derivados
+   * (imagenes de un EPUB), que tienen identidad propia y no son el original
+   * de ningun recurso.
+   */
+  rutaAsset(assetId: string): string | null {
+    const fila = this.db
+      .prepare('SELECT ruta_logica AS rutaLogica FROM assets WHERE id = ?')
+      .get(assetId) as { rutaLogica: string } | undefined;
+    return fila?.rutaLogica ?? null;
+  }
+
   /** Ruta logica del original, resuelta desde el UUID (nunca desde el renderer). */
   rutaOriginal(recursoId: string): string | null {
     const fila = this.db

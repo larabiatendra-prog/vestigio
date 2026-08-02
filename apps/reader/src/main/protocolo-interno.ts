@@ -11,6 +11,13 @@ import { PROTOCOLO_INTERNO } from './politica-red';
 /** Resuelve el UUID a una ruta logica dentro de CONTENT, o null. */
 export type ResolverOriginal = (recursoId: string) => Promise<string | null>;
 
+/**
+ * Resuelve el identificador de un asset derivado (hoy, una imagen sacada de
+ * un EPUB). Va por una via distinta que el original a proposito: son cosas
+ * distintas y conviene poder negar una sin negar la otra.
+ */
+export type ResolverAsset = (assetId: string) => Promise<string | null>;
+
 const TIPOS: Record<string, string> = {
   '.pdf': 'application/pdf',
   '.epub': 'application/epub+zip',
@@ -42,12 +49,14 @@ export function registrarEsquemaInterno(): void {
 }
 
 /**
- * Debe llamarse tras app.ready. Solo sirve `vestigio://original/<uuid>`.
- * Cualquier otra forma se deniega.
+ * Debe llamarse tras app.ready. Sirve exactamente dos formas:
+ * `vestigio://original/<uuid>` y `vestigio://asset/<uuid>`. Cualquier otra
+ * se deniega.
  */
 export function manejarProtocoloInterno(
   dirContent: string,
   resolverOriginal: ResolverOriginal,
+  resolverAsset: ResolverAsset = async () => null,
 ): void {
   const raizContent = resolve(dirContent);
 
@@ -59,7 +68,7 @@ export function manejarProtocoloInterno(
       return new Response('peticion invalida', { status: 400 });
     }
 
-    if (url.host !== 'original') {
+    if (url.host !== 'original' && url.host !== 'asset') {
       return new Response('recurso no permitido', { status: 403 });
     }
 
@@ -68,7 +77,8 @@ export function manejarProtocoloInterno(
       return new Response('identificador invalido', { status: 400 });
     }
 
-    const rutaLogica = await resolverOriginal(uuid);
+    const rutaLogica =
+      url.host === 'asset' ? await resolverAsset(uuid) : await resolverOriginal(uuid);
     if (rutaLogica === null) {
       return new Response('recurso no encontrado', { status: 404 });
     }
