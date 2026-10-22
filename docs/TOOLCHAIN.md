@@ -5,8 +5,8 @@ Versiones exactas resueltas el 2026-07-30; el `package-lock.json` es la fuente a
 | Pieza                                       | Versión          | Papel                  | Soporte                                                                          |
 | ------------------------------------------- | ---------------- | ---------------------- | -------------------------------------------------------------------------------- |
 | Electron                                    | 43.2.0           | runtime de la app      | estable actual; ~8 semanas por major, se revisará EOL antes de RC                |
-| Electron Forge (+ plugins webpack y fuses)  | 7.11.2           | empaquetado            | estable                                                                          |
-| @electron/fuses                             | 1.8.x            | grabar/verificar fuses | compatible con plugin-fuses 7.x (peer ^1)                                        |
+| Electron Forge (+ plugins webpack y fuses)  | 8.0.1            | empaquetado            | estable; subido desde 7.11.2 el 2026-10-21 (vulnerabilidades del tooling)        |
+| @electron/fuses                             | 2.1.x            | grabar/verificar fuses | compatible con plugin-fuses 8.x (peer ^2); solo exportaciones con nombre (ESM)   |
 | React / react-dom                           | 19.2.8           | renderer               | estable                                                                          |
 | TypeScript                                  | 6.0.x            | tipos estrictos        | estable (TS 7 nativo existe; se migrará con ADR cuando el ecosistema lo soporte) |
 | webpack + ts-loader/css-loader/style-loader | vía plugin Forge | bundling               | estable                                                                          |

@@ -2,12 +2,10 @@
 // el contrato de seguridad (forge.config.ts / ADR-0002). Se ejecuta tras
 // `npm run package -w @vestigio/reader`.
 
-import fuses from '@electron/fuses';
+import { getCurrentFuseWire, FuseV1Options } from '@electron/fuses';
 import { existsSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
-
-const { getCurrentFuseWire, FuseV1Options } = fuses;
 
 // Estados en el wire v1: '0' (0x30) = deshabilitado, '1' (0x31) = habilitado.
 const DESHABILITADO = 0x30;

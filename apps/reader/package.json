@@ -5,17 +5,17 @@
   "private": true,
   "description": "Aplicacion lectora de Vestigio: biblioteca offline portable.",
   "license": "Apache-2.0",
-  "main": ".webpack/main",
+  "main": ".webpack/main/index.js",
   "scripts": {
     "start": "electron-forge start",
     "package": "electron-forge package",
     "verificar-fuses": "node scripts/verificar-fuses.mjs"
   },
   "devDependencies": {
-    "@electron-forge/cli": "^7.11.2",
-    "@electron-forge/plugin-fuses": "^7.11.2",
-    "@electron-forge/plugin-webpack": "^7.11.2",
-    "@electron/fuses": "^1.8.0",
+    "@electron-forge/cli": "^8.0.1",
+    "@electron-forge/plugin-fuses": "^8.0.1",
+    "@electron-forge/plugin-webpack": "^8.0.1",
+    "@electron/fuses": "^2.1.3",
     "@types/react": "^19.2.17",
     "@types/react-dom": "^19.2.3",
     "copy-webpack-plugin": "^14.0.0",

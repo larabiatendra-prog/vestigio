@@ -50,6 +50,7 @@
 | 2026-08-01 | Bloque 10: navegación primaria, historial con restauración exacta, biblioteca en lista y rejilla, ficha con ejes honestos y pasada de accesibilidad.             |
 | 2026-08-01 | Bloque 11: shell común de lector para todos los formatos, `Ctrl+F` unificado, preferencias de lectura y progreso con fallback textual.                           |
 | 2026-08-01 | Bloque 12 (pantalla): Mi espacio, exportar e importar el espacio personal, y "cerrar y preparar para copiar o expulsar".                                         |
+| 2026-10-21 | Dependencias: Electron 43.8.3 y Electron Forge 8 con @electron/fuses 2 (cierra las críticas del tooling); `main` pasa a `.webpack/main/index.js`.                |
 
 ## Bloqueos
 
